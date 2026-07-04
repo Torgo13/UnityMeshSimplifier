@@ -17,6 +17,18 @@ namespace UnityMeshSimplifier
             if (Path.IsPathRooted(path))
                 throw new ArgumentException("The path cannot be rooted.", "path");
 
+#if OPTIMISATION
+            var sb = new StringBuilder();
+
+            // Make the path safe
+            var pathParts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < pathParts.Length; i++)
+            {
+                pathParts[i] = MakeSafeFileName(pathParts[i], sb);
+            }
+
+            return string.Join('/', pathParts);
+#else
             // Make the path safe
             var pathParts = path.Split(new [] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             for (int i = 0; i < pathParts.Length; i++)
@@ -24,13 +36,22 @@ namespace UnityMeshSimplifier
                 pathParts[i] = MakeSafeFileName(pathParts[i]);
             }
             return string.Join("/", pathParts);
+#endif // OPTIMISATION
         }
 
+#if OPTIMISATION
+        private static readonly char[] invalidFileNameChars = Path.GetInvalidFileNameChars();
+        internal static string MakeSafeFileName(string name,
+		    StringBuilder sb)
+        {
+            _ = sb.Clear();
+#else
         internal static string MakeSafeFileName(string name)
         {
             char[] invalidFileNameChars = Path.GetInvalidFileNameChars();
 
             var sb = new StringBuilder(name.Length);
+#endif // OPTIMISATION
             bool lastWasInvalid = false;
             for (int i = 0; i < name.Length; i++)
             {

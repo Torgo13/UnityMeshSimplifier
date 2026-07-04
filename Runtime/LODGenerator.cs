@@ -443,15 +443,24 @@ namespace UnityMeshSimplifier
         private static void ParentAndResetTransform(Transform transform, Transform parentTransform)
         {
             transform.SetParent(parentTransform);
+#if OPTIMISATION_UNITY
+            transform.SetLocalPositionAndRotation(default, Quaternion.identity);
+#else
             transform.localPosition = Vector3.zero;
             transform.localRotation = Quaternion.identity;
+#endif // OPTIMISATION_UNITY
             transform.localScale = Vector3.one;
         }
 
         private static void ParentAndOffsetTransform(Transform transform, Transform parentTransform, Transform originalTransform)
         {
+#if OPTIMISATION_UNITY
+            originalTransform.GetPositionAndRotation(out Vector3 pos, out Quaternion rot);
+            transform.SetPositionAndRotation(pos, rot);
+#else
             transform.position = originalTransform.position;
             transform.rotation = originalTransform.rotation;
+#endif // OPTIMISATION_UNITY
             transform.localScale = originalTransform.lossyScale;
             transform.SetParent(parentTransform, true);
         }
@@ -698,9 +707,16 @@ namespace UnityMeshSimplifier
             if (string.IsNullOrEmpty(meshName))
                 meshName = "unnamed";
 
+#if OPTIMISATION
+            var sb = new System.Text.StringBuilder();
+            gameObjectName = IOUtils.MakeSafeFileName(gameObjectName, sb);
+            rendererName = IOUtils.MakeSafeFileName(rendererName, sb);
+            meshName = IOUtils.MakeSafeFileName(meshName, sb);
+#else
             gameObjectName = IOUtils.MakeSafeFileName(gameObjectName);
             rendererName = IOUtils.MakeSafeFileName(rendererName);
             meshName = IOUtils.MakeSafeFileName(meshName);
+#endif // OPTIMISATION
             meshName = string.Format("{0:00}_{1}", levelIndex, meshName);
 
             string finalSaveAssetsPath = GetFinalSaveAssetsPath(gameObjectName, rendererName, saveAssetsPath);

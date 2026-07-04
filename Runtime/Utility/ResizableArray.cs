@@ -27,12 +27,125 @@ SOFTWARE.
 using System;
 using System.Runtime.CompilerServices;
 
+#if USING_COLLECTIONS
+using System.Collections;
+using System.Collections.Generic;
+using Unity.Collections;
+#endif // USING_COLLECTIONS
+
 namespace UnityMeshSimplifier
 {
     /// <summary>
     /// A resizable array with the goal of being quicker than List<T>.
     /// </summary>
     /// <typeparam name="T">The item type.</typeparam>
+#if USING_COLLECTIONS
+    internal struct ResizableArray<T>
+        : IEnumerable<T>, IEquatable<ResizableArray<T>>, INativeDisposable where T : unmanaged
+    {
+        internal NativeList<T> _resizableArray;
+
+        public ResizableArray(int initialCapacity, AllocatorManager.AllocatorHandle allocator)
+        {
+            _resizableArray = new NativeList<T>(initialCapacity, allocator);
+        }
+
+        public ResizableArray(int initialCapacity)
+        {
+            _resizableArray = new NativeList<T>(initialCapacity, Allocator.Domain);
+        }
+
+        public ResizableArray(int initialCapacity, int initialLength)
+        {
+            _resizableArray = new NativeList<T>(initialCapacity, Allocator.Domain);
+            _resizableArray.Resize(initialLength, NativeArrayOptions.ClearMemory);
+        }
+
+        ResizableArray(NativeList<T> resizableArray)
+        {
+            _resizableArray = resizableArray;
+        }
+
+        public ResizableArray(T[] resizableArray)
+        {
+            _resizableArray = new NativeList<T>(resizableArray.Length, Allocator.Domain);
+            foreach (T item in resizableArray)
+            {
+                _resizableArray.AddNoResize(item);
+            }
+        }
+
+        public readonly int Length => _resizableArray.Length;
+        public readonly int Count => _resizableArray.Length;
+        public readonly ResizableArray<T> Data => this;
+        public ref T this[int index] => ref _resizableArray.ElementAt(index);
+
+        public void Clear() => _resizableArray.Clear();
+        public void Add(in T value) => _resizableArray.Add(value);
+        public void AddRange(T[] value)
+        {
+            var required = _resizableArray.Length + value.Length;
+            if (_resizableArray.Capacity < required)
+                _resizableArray.Capacity = required;
+
+            foreach (var item in value)
+            {
+                _resizableArray.AddNoResize(item);
+            }
+        }
+        public void ResizeUninitialized(int length) => _resizableArray.ResizeUninitialized(length);
+        public void TrimExcess() => _resizableArray.TrimExcess();
+        public NativeArray<T> AsArray() => _resizableArray.AsArray();
+        public T[] ToArray() => _resizableArray.AsArray().ToArray();
+
+        public void Resize(int length, bool trimExess = false, bool clearMemory = false)
+        {
+            _resizableArray.Resize(length, clearMemory ? NativeArrayOptions.ClearMemory : NativeArrayOptions.UninitializedMemory);
+            if (trimExess)
+            {
+                _resizableArray.TrimExcess();
+            }
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "<Pending>")]
+        public static implicit operator ResizableArray<T>(UnityEngine.Object obj) => default;
+        public static implicit operator ResizableArray<T>(NativeList<T> resizableArray) => new ResizableArray<T>(resizableArray);
+        public static implicit operator NativeList<T>(ResizableArray<T> resizableArray) => resizableArray._resizableArray;
+        public static implicit operator NativeArray<T>(ResizableArray<T> resizableArray) => resizableArray.AsArray();
+        public static implicit operator Span<T>(ResizableArray<T> resizableArray) => resizableArray.AsArray();
+        public static implicit operator ReadOnlySpan<T>(ResizableArray<T> resizableArray) => resizableArray.AsArray();
+        public static implicit operator T[](ResizableArray<T> resizableArray) => resizableArray.ToArray();
+
+        #region INativeDisposable
+        public Unity.Jobs.JobHandle Dispose(Unity.Jobs.JobHandle inputDeps) => _resizableArray.Dispose(inputDeps);
+        public void Dispose() => _resizableArray.Dispose();
+        #endregion // INativeDisposable
+
+        #region IEquatable
+        public static bool operator ==(ResizableArray<T> customArray, ResizableArray<T> other)
+        {
+            if (!customArray._resizableArray.IsCreated
+                && !other._resizableArray.IsCreated)
+                return true;
+
+            if (customArray._resizableArray.IsCreated
+                != other._resizableArray.IsCreated)
+                return false;
+
+            return customArray._resizableArray.AsArray() == other._resizableArray.AsArray();
+        }
+        public static bool operator !=(ResizableArray<T> customArray, ResizableArray<T> other) => !(customArray == other);
+        public readonly bool Equals(ResizableArray<T> other) => this == other;
+        public override readonly bool Equals(object obj) => obj is ResizableArray<T> other && this == other;
+        public override int GetHashCode() => _resizableArray.IsEmpty ? 0 : _resizableArray.AsArray().GetHashCode();
+        #endregion // IEquatable
+
+        #region IEnumerable
+        public IEnumerator<T> GetEnumerator() => _resizableArray.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => _resizableArray.GetEnumerator();
+        #endregion // IEnumerable
+    }
+#else
     internal sealed class ResizableArray<T>
     {
         #region Fields
@@ -215,4 +328,5 @@ namespace UnityMeshSimplifier
         }
         #endregion
     }
+#endif // USING_COLLECTIONS
 }

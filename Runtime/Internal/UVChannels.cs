@@ -29,6 +29,9 @@ using System.Runtime.CompilerServices;
 namespace UnityMeshSimplifier.Internal
 {
     internal class UVChannels<TVec>
+#if USING_COLLECTIONS
+        where TVec : unmanaged
+#endif // USING_COLLECTIONS
     {
         private static readonly int UVChannelCount = MeshUtils.UVChannelCount;
 
@@ -72,6 +75,16 @@ namespace UnityMeshSimplifier.Internal
             channels = new ResizableArray<TVec>[UVChannelCount];
             channelsData = new TVec[UVChannelCount][];
         }
+
+#if USING_COLLECTIONS
+        ~UVChannels()
+        {
+            foreach (var channel in channels)
+            {
+                channel.Dispose();
+            }
+        }
+#endif // USING_COLLECTIONS
 
         /// <summary>
         /// Resizes all channels at once.

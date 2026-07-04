@@ -29,15 +29,29 @@ using UnityEngine;
 
 namespace UnityMeshSimplifier.Internal
 {
+#if USING_COLLECTIONS
+    internal readonly struct BlendShapeContainer : Unity.Collections.INativeDisposable
+    {
+        private readonly Unity.Collections.NativeText shapeName;
+        private readonly Unity.Collections.NativeArray<BlendShapeFrameContainer> frames;
+#else
     internal class BlendShapeContainer
     {
         private readonly string shapeName;
         private readonly BlendShapeFrameContainer[] frames;
+#endif // USING_COLLECTIONS
 
         public BlendShapeContainer(BlendShape blendShape)
         {
+#if USING_COLLECTIONS
+            shapeName = new Unity.Collections.NativeText(blendShape.ShapeName, Unity.Collections.Allocator.Domain);
+            frames = new Unity.Collections.NativeArray<BlendShapeFrameContainer>(blendShape.Frames.Length,
+                Unity.Collections.Allocator.Domain,
+                Unity.Collections.NativeArrayOptions.UninitializedMemory);
+#else
             shapeName = blendShape.ShapeName;
             frames = new BlendShapeFrameContainer[blendShape.Frames.Length];
+#endif // USING_COLLECTIONS
             for (int i = 0; i < frames.Length; i++)
             {
                 frames[i] = new BlendShapeFrameContainer(blendShape.Frames[i]);
@@ -79,5 +93,30 @@ namespace UnityMeshSimplifier.Internal
             }
             return new BlendShape(shapeName, shapeFrames);
         }
+
+#if USING_COLLECTIONS
+        #region INativeDisposable
+        public Unity.Jobs.JobHandle Dispose(Unity.Jobs.JobHandle inputDeps)
+        {
+            foreach (var frame in frames)
+            {
+                inputDeps = frame.Dispose(inputDeps);
+            }
+
+            return shapeName.Dispose(frames.Dispose(inputDeps));
+        }
+
+        public void Dispose()
+        {
+            foreach (var frame in frames)
+            {
+                frame.Dispose();
+            }
+
+            frames.Dispose();
+            shapeName.Dispose();
+        }
+        #endregion // INativeDisposable
+#endif // USING_COLLECTIONS
     }
 }

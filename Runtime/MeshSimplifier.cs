@@ -462,6 +462,9 @@ namespace UnityMeshSimplifier
         #region Private Methods
         #region Initialize Vertex Attribute
         private void InitializeVertexAttribute<T>(T[] attributeValues, ref ResizableArray<T> attributeArray, string attributeName)
+#if USING_COLLECTIONS
+            where T : unmanaged
+#endif // USING_COLLECTIONS
         {
             if (attributeValues != null && attributeValues.Length == vertices.Length)
             {
@@ -646,7 +649,11 @@ namespace UnityMeshSimplifier
                 int s = r.tvertex;
                 int id1 = triangles[r.tid][(s + 1) % 3];
                 int id2 = triangles[r.tid][(s + 2) % 3];
+#if BUGFIX
+                if (id1 == i0 || id2 == i1)
+#else
                 if (id1 == i1 || id2 == i1)
+#endif // BUGFIX
                 {
                     deleted[k] = true;
                     continue;
@@ -1989,8 +1996,18 @@ namespace UnityMeshSimplifier
         {
             if (blendShapes != null)
             {
+#if USING_COLLECTIONS
+                foreach (var blendShape in blendShapes)
+                {
+                    blendShape.Dispose();
+                }
+
+                blendShapes.Dispose();
+                blendShapes = default;
+#else
                 blendShapes.Clear();
                 blendShapes = null;
+#endif // USING_COLLECTIONS
             }
         }
 
