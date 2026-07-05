@@ -54,6 +54,9 @@ namespace UnityMeshSimplifier
     /// Deeply based on https://github.com/sp4cerat/Fast-Quadric-Mesh-Simplification but rewritten completely in C#.
     /// </summary>
     public sealed class MeshSimplifier
+#if USING_COLLECTIONS
+        : IDisposable
+#endif // USING_COLLECTIONS
     {
         #region Consts & Static Read-Only
         private const int TriangleEdgeCount = 3;
@@ -311,6 +314,12 @@ namespace UnityMeshSimplifier
             get { return (blendShapes != null ? blendShapes.Length : 0); }
         }
 
+#if OPTIMISATION
+        public ReadOnlySpan<Vector3> NormalsSpan => vertNormals;
+        public ReadOnlySpan<Vector4> TangentsSpan => vertTangents;
+        public ReadOnlySpan<Color> ColorsSpan => vertColors;
+#endif // OPTIMISATION
+
         /// <summary>
         /// Gets or sets the vertex normals.
         /// </summary>
@@ -458,6 +467,16 @@ namespace UnityMeshSimplifier
             }
         }
         #endregion
+
+#if USING_COLLECTIONS
+        public void Dispose()
+        {
+            ClearBlendShapes();
+            vertUV2D?.Dispose();
+            vertUV3D?.Dispose();
+            vertUV4D?.Dispose();
+        }
+#endif // USING_COLLECTIONS
 
         #region Private Methods
         #region Initialize Vertex Attribute
@@ -2136,8 +2155,13 @@ namespace UnityMeshSimplifier
             quality = Mathf.Clamp01(quality);
 
             int deletedTris = 0;
+#if USING_COLLECTIONS
+            using ResizableArray<bool> deleted0 = new ResizableArray<bool>(20);
+            using ResizableArray<bool> deleted1 = new ResizableArray<bool>(20);
+#else
             ResizableArray<bool> deleted0 = new ResizableArray<bool>(20);
             ResizableArray<bool> deleted1 = new ResizableArray<bool>(20);
+#endif // USING_COLLECTIONS
             var triangles = this.triangles.Data;
             int triangleCount = this.triangles.Length;
             int startTrisCount = triangleCount;
@@ -2193,8 +2217,13 @@ namespace UnityMeshSimplifier
         public void SimplifyMeshLossless()
         {
             int deletedTris = 0;
+#if USING_COLLECTIONS
+            using ResizableArray<bool> deleted0 = new ResizableArray<bool>(0);
+            using ResizableArray<bool> deleted1 = new ResizableArray<bool>(0);
+#else
             ResizableArray<bool> deleted0 = new ResizableArray<bool>(0);
             ResizableArray<bool> deleted1 = new ResizableArray<bool>(0);
+#endif // USING_COLLECTIONS
             var triangles = this.triangles.Data;
             int triangleCount = this.triangles.Length;
             int startTrisCount = triangleCount;

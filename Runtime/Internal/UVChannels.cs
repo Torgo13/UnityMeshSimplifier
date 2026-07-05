@@ -30,7 +30,7 @@ namespace UnityMeshSimplifier.Internal
 {
     internal class UVChannels<TVec>
 #if USING_COLLECTIONS
-        where TVec : unmanaged
+        : System.IDisposable where TVec : unmanaged
 #endif // USING_COLLECTIONS
     {
         private static readonly int UVChannelCount = MeshUtils.UVChannelCount;
@@ -77,7 +77,7 @@ namespace UnityMeshSimplifier.Internal
         }
 
 #if USING_COLLECTIONS
-        ~UVChannels()
+        public void Dispose()
         {
             foreach (var channel in channels)
             {

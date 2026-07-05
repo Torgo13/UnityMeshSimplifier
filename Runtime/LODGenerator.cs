@@ -618,6 +618,9 @@ namespace UnityMeshSimplifier
 
         private static Mesh SimplifyMesh(Mesh mesh, float quality, in SimplificationOptions options)
         {
+#if OPTIMISATION
+            using
+#endif // OPTIMISATION
             var meshSimplifier = new MeshSimplifier();
             meshSimplifier.SimplificationOptions = options;
             meshSimplifier.Initialize(mesh);
