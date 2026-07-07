@@ -50,7 +50,7 @@ namespace UnityMeshSimplifier
         private string saveAssetsPath = string.Empty;
 
         [SerializeField, Tooltip("The LOD levels.")]
-        private LODLevel[] levels = null;
+        private LODLevel[] levels = new LODLevel[3];
 
         [SerializeField]
         private bool isGenerated = false;

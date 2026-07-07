@@ -49,7 +49,7 @@ namespace UnityMeshSimplifier
         private bool combineSubMeshes;
 
         [SerializeField, Tooltip("The renderers used in this level.")]
-        private Renderer[] renderers;
+        private Renderer[]? renderers;
 
         [SerializeField, Tooltip("The skin quality to use for renderers on this level.")]
         private SkinQuality skinQuality;
@@ -118,7 +118,7 @@ namespace UnityMeshSimplifier
         /// Gets or sets the renderers used in this level.
         /// These will have no purpose if automatic collection is used for the LOD generator.
         /// </summary>
-        public Renderer[] Renderers
+        public Renderer[]? Renderers
         {
             get { return renderers; }
             set { renderers = value; }
@@ -223,7 +223,7 @@ namespace UnityMeshSimplifier
         /// <param name="combineMeshes">If all renderers and meshes under this level should be combined into one, where possible.</param>
         /// <param name="combineSubMeshes">If all sub-meshes should be combined into one, where possible.</param>
         /// <param name="renderers">The renderers used in this level.</param>
-        public LODLevel(float screenRelativeTransitionHeight, float fadeTransitionWidth, float quality, bool combineMeshes, bool combineSubMeshes, Renderer[] renderers)
+        public LODLevel(float screenRelativeTransitionHeight, float fadeTransitionWidth, float quality, bool combineMeshes, bool combineSubMeshes, Renderer[]? renderers)
         {
             this.screenRelativeTransitionHeight = Mathf.Clamp01(screenRelativeTransitionHeight);
             this.fadeTransitionWidth = fadeTransitionWidth;

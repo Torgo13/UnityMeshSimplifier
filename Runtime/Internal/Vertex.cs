@@ -53,12 +53,13 @@ namespace UnityMeshSimplifier.Internal
             this.uvFoldoverEdge = false;
         }
 
+        readonly
         public override int GetHashCode()
         {
             return index;
         }
 
-        public override bool Equals(object obj)
+        public readonly override bool Equals(object? obj)
         {
             if (obj is Vertex)
             {
@@ -69,6 +70,7 @@ namespace UnityMeshSimplifier.Internal
             return false;
         }
 
+        readonly
         public bool Equals(Vertex other)
         {
             return index == other.index;

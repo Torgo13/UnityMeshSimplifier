@@ -32,6 +32,7 @@ namespace UnityMeshSimplifier.Internal
 #if USING_COLLECTIONS
     internal readonly struct BlendShapeFrameContainer : Unity.Collections.INativeDisposable
 #else
+    sealed
     internal class BlendShapeFrameContainer
 #endif // USING_COLLECTIONS
     {

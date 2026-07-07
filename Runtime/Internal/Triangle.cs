@@ -37,6 +37,7 @@ namespace UnityMeshSimplifier.Internal
         public int v0;
         public int v1;
         public int v2;
+        readonly
         public int subMeshIndex;
 
         public int va0;
@@ -57,18 +58,17 @@ namespace UnityMeshSimplifier.Internal
         public int this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get
+            readonly get => index switch
             {
-                return (index == 0 ? v0 : (index == 1 ? v1 : v2));
-            }
+                1 => v1,
+                2 => v2,
+                _ => v0
+            };
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
                 switch (index)
                 {
-                    case 0:
-                        v0 = value;
-                        break;
                     case 1:
                         v1 = value;
                         break;
@@ -76,7 +76,8 @@ namespace UnityMeshSimplifier.Internal
                         v2 = value;
                         break;
                     default:
-                        throw new ArgumentOutOfRangeException(nameof(index));
+                        v0 = value;
+                        break;
                 }
             }
         }
@@ -105,6 +106,7 @@ namespace UnityMeshSimplifier.Internal
 
         #region Public Methods
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        readonly
         public void GetAttributeIndices(int[] attributeIndices)
         {
             attributeIndices[0] = va0;
@@ -117,9 +119,6 @@ namespace UnityMeshSimplifier.Internal
         {
             switch (index)
             {
-                case 0:
-                    va0 = value;
-                    break;
                 case 1:
                     va1 = value;
                     break;
@@ -127,11 +126,13 @@ namespace UnityMeshSimplifier.Internal
                     va2 = value;
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(index));
+                    va0 = value;
+                    break;
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        readonly
         public void GetErrors(double[] err)
         {
             err[0] = err0;
@@ -139,12 +140,13 @@ namespace UnityMeshSimplifier.Internal
             err[2] = err2;
         }
 
+        readonly
         public override int GetHashCode()
         {
             return index;
         }
 
-        public override bool Equals(object obj)
+        public readonly override bool Equals(object? obj)
         {
             if (obj is Triangle)
             {
@@ -155,6 +157,7 @@ namespace UnityMeshSimplifier.Internal
             return false;
         }
 
+        readonly
         public bool Equals(Triangle other)
         {
             return index == other.index;

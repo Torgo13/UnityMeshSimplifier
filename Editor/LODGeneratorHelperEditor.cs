@@ -54,6 +54,7 @@ namespace UnityMeshSimplifier.Editor
         private const float RendererButtonWidth = 60f;
         private const float RemoveRendererButtonSize = 20f;
 
+#nullable disable
         private SerializedProperty fadeModeProperty = null;
         private SerializedProperty animateCrossFadingProperty = null;
         private SerializedProperty autoCollectRenderersProperty = null;
@@ -65,6 +66,7 @@ namespace UnityMeshSimplifier.Editor
         private bool overrideSaveAssetsPath = false;
         private bool[] settingsExpanded = null;
         private LODGeneratorHelper lodGeneratorHelper = null;
+#nullable enable
 
         private static readonly GUIContent createLevelButtonContent = new GUIContent("Create Level", "Creates a new LOD level.");
         private static readonly GUIContent deleteLevelButtonContent = new GUIContent("X", "Deletes this LOD level.");
@@ -319,7 +321,7 @@ namespace UnityMeshSimplifier.Editor
             HandleAddRenderer(addButtonPosition, listPosition, renderersProperty);
         }
 
-        private void DrawRendererButton(Rect position, SerializedProperty renderersProperty, int rendererIndex, Renderer renderer)
+        private void DrawRendererButton(Rect position, SerializedProperty renderersProperty, int rendererIndex, Renderer? renderer)
         {
             var current = Event.current;
             var currentEvent = current.type;
@@ -348,7 +350,7 @@ namespace UnityMeshSimplifier.Editor
             {
                 if (renderer != null)
                 {
-                    GUIContent content = null;
+                    GUIContent content;
                     var skinnedMeshRenderer = (renderer as SkinnedMeshRenderer);
                     if (skinnedMeshRenderer != null)
                     {
@@ -406,13 +408,11 @@ namespace UnityMeshSimplifier.Editor
                         DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
                         if (currentEvent == EventType.DragPerform)
                         {
-                            var draggedGameObjects = from go in dragObjects
-                                                     where go as GameObject != null
-                                                     select go as GameObject;
                             var draggedRenderers = from renderer in dragObjects
                                                    where renderer as Renderer != null
                                                    select renderer as Renderer;
-                            var gameObjectRenderers = GetRenderers(draggedGameObjects, true);
+                            using var _0 = UnityEngine.Pool.ListPool<Renderer>.Get(out var gameObjectRenderers);
+                            _ = GetRenderers(dragObjects, true, gameObjectRenderers);
                             AddRenderers(renderersProperty, draggedRenderers, true);
                             AddRenderers(renderersProperty, gameObjectRenderers, true);
                             DragAndDrop.AcceptDrag();
@@ -430,7 +430,8 @@ namespace UnityMeshSimplifier.Editor
                     var gameObject = EditorGUIUtility.GetObjectPickerObject() as GameObject;
                     if (gameObject != null)
                     {
-                        var gameObjectRenderers = GetRenderers(new GameObject[] { gameObject }, true);
+                        using var _0 = UnityEngine.Pool.ListPool<Renderer>.Get(out var gameObjectRenderers);
+                        _ = GetRenderers(gameObject, true, gameObjectRenderers);
                         AddRenderers(renderersProperty, gameObjectRenderers, true);
                     }
                     current.Use();
@@ -446,7 +447,9 @@ namespace UnityMeshSimplifier.Editor
                 renderersProperty.ClearArray();
             }
 
-            var existingRendererList = new List<Renderer>(renderersProperty.arraySize);
+            using var _0 = UnityEngine.Pool.ListPool<Renderer>.Get(out var existingRendererList);
+            if (existingRendererList.Capacity < renderersProperty.arraySize)
+                existingRendererList.Capacity = renderersProperty.arraySize;
             for (int i = 0; i < renderersProperty.arraySize; i++)
             {
                 var rendererProperty = renderersProperty.GetArrayElementAtIndex(i);
@@ -608,7 +611,35 @@ namespace UnityMeshSimplifier.Editor
             }
         }
 
-        private Renderer[] GetRenderers(IEnumerable<GameObject> gameObjects, bool searchChildren)
+        private List<Renderer> GetRenderers(GameObject gameObject, bool searchChildren,
+            List<Renderer> rendererList)
+        {
+            using var _0 = UnityEngine.Pool.ListPool<GameObject>.Get(out var gameObjects);
+            gameObjects.Add(gameObject);
+
+            return GetRenderers(gameObjects, searchChildren, rendererList);
+        }
+
+        private List<Renderer> GetRenderers(Object?[] objects, bool searchChildren,
+            List<Renderer> rendererList)
+        {
+            using var _0 = UnityEngine.Pool.ListPool<GameObject>.Get(out var gameObjects);
+            if (gameObjects.Capacity < objects.Length)
+                gameObjects.Capacity = objects.Length;
+
+            foreach (var obj in objects)
+            {
+                if (obj as GameObject != null)
+                {
+                    gameObjects.Add((GameObject)obj);
+                }
+            }
+
+            return GetRenderers(gameObjects, searchChildren, rendererList);
+        }
+
+        private List<Renderer> GetRenderers(List<GameObject> gameObjects, bool searchChildren,
+            List<Renderer> rendererList)
         {
             // Filter out game objects that aren't children of the generator
             var ourTransform = lodGeneratorHelper.transform;
@@ -631,33 +662,38 @@ namespace UnityMeshSimplifier.Editor
 
             if (prefabGameObjects.Any())
             {
-                EditorUtility.DisplayDialog("Invalid GameObjects", "Some objects are not children of the LODGenerator GameObject," + 
+                EditorUtility.DisplayDialog("Invalid GameObjects", "Some objects are not children of the LODGenerator GameObject," +
                     " as well as being part of a prefab. They will not be added.", "OK");
             }
 #endif
 
-            if (notChildGameObjects.Any())
+            var notChild = UnityEngine.Pool.ListPool<GameObject>.Get();
+            notChild.AddRange(notChildGameObjects);
+            if (notChild.Count != 0)
             {
                 if (EditorUtility.DisplayDialog("Reparent GameObjects", "Some objects are not children of the LODGenerator GameObject." +
                     " Do you want to reparent them and add them to the LODGenerator?", "Yes, Reparent", "No, Use Only Existing Children"))
                 {
-                    var relocatedList = new List<GameObject>();
-                    foreach (var gameObject in notChildGameObjects)
+                    var relocatedList = UnityEngine.Pool.ListPool<GameObject>.Get();
+                    foreach (var gameObject in notChild)
                     {
                         gameObject.transform.SetParent(ourTransform, true);
                         relocatedList.Add(gameObject);
                     }
 
                     childGameObjects = childGameObjects.Union(relocatedList);
+                    UnityEngine.Pool.ListPool<GameObject>.Release(relocatedList);
                 }
             }
 
-            var rendererList = new List<Renderer>();
+            UnityEngine.Pool.ListPool<GameObject>.Release(notChild);
+            var renderers = UnityEngine.Pool.ListPool<Renderer>.Get();
             foreach (var gameObject in childGameObjects)
             {
                 if (searchChildren)
                 {
-                    var renderers = gameObject.GetComponentsInChildren<Renderer>();
+                    renderers.Clear();
+                    gameObject.GetComponentsInChildren<Renderer>(renderers);
                     foreach (var renderer in renderers)
                     {
                         if (!rendererList.Contains(renderer))
@@ -676,7 +712,8 @@ namespace UnityMeshSimplifier.Editor
                 }
             }
 
-            return rendererList.ToArray();
+            UnityEngine.Pool.ListPool<Renderer>.Release(renderers);
+            return rendererList;
         }
 
         private void MarkSceneAsDirty()

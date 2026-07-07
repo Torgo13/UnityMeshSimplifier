@@ -10,7 +10,7 @@ namespace UnityMeshSimplifier
         internal static string MakeSafeRelativePath(string path)
         {
             if (string.IsNullOrEmpty(path))
-                return null;
+                return string.Empty;
 
             path = path.Replace('\\', '/').Trim('/');
 

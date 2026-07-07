@@ -70,6 +70,7 @@ namespace UnityMeshSimplifier
         /// <summary>
         /// Gets the magnitude of this vector.
         /// </summary>
+        readonly
         public double Magnitude
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -79,6 +80,7 @@ namespace UnityMeshSimplifier
         /// <summary>
         /// Gets the squared magnitude of this vector.
         /// </summary>
+        readonly
         public double MagnitudeSqr
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -106,28 +108,21 @@ namespace UnityMeshSimplifier
         public double this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            readonly
             get
             {
-                switch (index)
+                return index switch
                 {
-                    case 0:
-                        return x;
-                    case 1:
-                        return y;
-                    case 2:
-                        return z;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(index), "Invalid Vector3d index!");
-                }
+                    1 => y,
+                    2 => z,
+                    _ => x
+                };
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
                 switch (index)
                 {
-                    case 0:
-                        x = value;
-                        break;
                     case 1:
                         y = value;
                         break;
@@ -135,7 +130,8 @@ namespace UnityMeshSimplifier
                         z = value;
                         break;
                     default:
-                        throw new ArgumentOutOfRangeException(nameof(index), "Invalid Vector3d index!");
+                        x = value;
+                        break;
                 }
             }
         }
@@ -221,7 +217,7 @@ namespace UnityMeshSimplifier
         /// <summary>
         /// Scales the vector uniformly.
         /// </summary>
-        /// <param name="d">The scaling vlaue.</param>
+        /// <param name="d">The scaling value.</param>
         /// <param name="a">The vector.</param>
         /// <returns>The resulting vector.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -254,7 +250,7 @@ namespace UnityMeshSimplifier
         }
 
         /// <summary>
-        /// Returns if two vectors equals eachother.
+        /// Returns if two vectors equals each other.
         /// </summary>
         /// <param name="lhs">The left hand side vector.</param>
         /// <param name="rhs">The right hand side vector.</param>
@@ -266,7 +262,7 @@ namespace UnityMeshSimplifier
         }
 
         /// <summary>
-        /// Returns if two vectors don't equal eachother.
+        /// Returns if two vectors don't equal each other.
         /// </summary>
         /// <param name="lhs">The left hand side vector.</param>
         /// <param name="rhs">The right hand side vector.</param>
@@ -369,6 +365,7 @@ namespace UnityMeshSimplifier
         /// Returns a hash code for this vector.
         /// </summary>
         /// <returns>The hash code.</returns>
+        readonly
         public override int GetHashCode()
         {
             return x.GetHashCode() ^ y.GetHashCode() << 2 ^ z.GetHashCode() >> 2;
@@ -379,14 +376,9 @@ namespace UnityMeshSimplifier
         /// </summary>
         /// <param name="obj">The other vector to compare to.</param>
         /// <returns>If equals.</returns>
-        public override bool Equals(object obj)
+        public readonly override bool Equals(object? obj)
         {
-            if (!(obj is Vector3d))
-            {
-                return false;
-            }
-            Vector3d vector = (Vector3d)obj;
-            return (x == vector.x && y == vector.y && z == vector.z);
+            return obj is Vector3d vector && this.Equals(vector);
         }
 
         /// <summary>
@@ -394,15 +386,22 @@ namespace UnityMeshSimplifier
         /// </summary>
         /// <param name="other">The other vector to compare to.</param>
         /// <returns>If equals.</returns>
+        readonly
         public bool Equals(Vector3d other)
         {
-            return (x == other.x && y == other.y && z == other.z);
+            return Approximately(x, other.x) && Approximately(y, other.y) && Approximately(z, other.z);
+        }
+
+        static bool Approximately(double a, double b)
+        {
+            return Math.Abs(b - a) < Math.Max(1E-06f * Math.Max(Math.Abs(a), Math.Abs(b)), Mathf.Epsilon * 8f);
         }
 
         /// <summary>
         /// Returns a nicely formatted string for this vector.
         /// </summary>
         /// <returns>The string.</returns>
+        readonly
         public override string ToString()
         {
             return string.Format("({0:F1}, {1:F1}, {2:F1})", x, y, z);
@@ -413,6 +412,7 @@ namespace UnityMeshSimplifier
         /// </summary>
         /// <param name="format">The float format.</param>
         /// <returns>The string.</returns>
+        readonly
         public string ToString(string format)
         {
             return string.Format("({0}, {1}, {2})", x.ToString(format), y.ToString(format), z.ToString(format));

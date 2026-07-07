@@ -36,7 +36,7 @@ using Unity.Collections;
 namespace UnityMeshSimplifier
 {
     /// <summary>
-    /// A resizable array with the goal of being quicker than List<T>.
+    /// A resizable array with the goal of being quicker than <see cref="System.Collections.Generic.List{T}"/>.
     /// </summary>
     /// <typeparam name="T">The item type.</typeparam>
 #if USING_COLLECTIONS
@@ -96,12 +96,12 @@ namespace UnityMeshSimplifier
         public void ResizeUninitialized(int length) => _resizableArray.ResizeUninitialized(length);
         public void TrimExcess() => _resizableArray.TrimExcess();
         public NativeArray<T> AsArray() => _resizableArray.AsArray();
-        public T[] ToArray() => _resizableArray.AsArray().ToArray();
+        public readonly T[] ToArray() => _resizableArray.IsEmpty ? Array.Empty<T>() : _resizableArray.AsArray().ToArray();
 
-        public void Resize(int length, bool trimExess = false, bool clearMemory = false)
+        public readonly void Resize(int length, bool trimExcess = false, bool clearMemory = false)
         {
             _resizableArray.Resize(length, clearMemory ? NativeArrayOptions.ClearMemory : NativeArrayOptions.UninitializedMemory);
-            if (trimExess)
+            if (trimExcess)
             {
                 _resizableArray.TrimExcess();
             }
@@ -117,8 +117,8 @@ namespace UnityMeshSimplifier
         public static implicit operator T[](ResizableArray<T> resizableArray) => resizableArray.ToArray();
 
         #region INativeDisposable
-        public Unity.Jobs.JobHandle Dispose(Unity.Jobs.JobHandle inputDeps) => _resizableArray.Dispose(inputDeps);
-        public void Dispose() => _resizableArray.Dispose();
+        public readonly Unity.Jobs.JobHandle Dispose(Unity.Jobs.JobHandle inputDeps) => _resizableArray.Dispose(inputDeps);
+        public readonly void Dispose() => _resizableArray.Dispose();
         #endregion // INativeDisposable
 
         #region IEquatable
@@ -136,7 +136,7 @@ namespace UnityMeshSimplifier
         }
         public static bool operator !=(ResizableArray<T> customArray, ResizableArray<T> other) => !(customArray == other);
         public readonly bool Equals(ResizableArray<T> other) => this == other;
-        public override readonly bool Equals(object obj) => obj is ResizableArray<T> other && this == other;
+        public readonly override bool Equals(object? obj) => obj is ResizableArray<T> other && this == other;
         public override int GetHashCode() => _resizableArray.IsEmpty ? 0 : _resizableArray.AsArray().GetHashCode();
         #endregion // IEquatable
 
@@ -149,7 +149,7 @@ namespace UnityMeshSimplifier
     internal sealed class ResizableArray<T>
     {
         #region Fields
-        private T[] items = null;
+        private T[] items;
         private int length = 0;
 
         private static T[] emptyArr = new T[0];
@@ -265,7 +265,7 @@ namespace UnityMeshSimplifier
         /// Resizes this array.
         /// </summary>
         /// <param name="length">The new length.</param>
-        /// <param name="trimExess">If exess memory should be trimmed.</param>
+        /// <param name="trimExess">If excess memory should be trimmed.</param>
         /// <param name="clearMemory">If memory that is no longer part of the array should be cleared.</param>
         public void Resize(int length, bool trimExess = false, bool clearMemory = false)
         {
@@ -317,7 +317,7 @@ namespace UnityMeshSimplifier
         }
 
         /// <summary>
-        /// Returns a copy of the resizable array as an actually array.
+        /// Returns a copy of the resizable array as an actual array.
         /// </summary>
         /// <returns>The array.</returns>
         public T[] ToArray()

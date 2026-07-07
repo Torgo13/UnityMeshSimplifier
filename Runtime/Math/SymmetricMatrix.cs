@@ -85,6 +85,7 @@ namespace UnityMeshSimplifier
         /// </summary>
         /// <param name="index">The component index.</param>
         /// <returns>The value.</returns>
+        readonly
         public double this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -92,8 +93,6 @@ namespace UnityMeshSimplifier
             {
                 switch (index)
                 {
-                    case 0:
-                        return m0;
                     case 1:
                         return m1;
                     case 2:
@@ -113,7 +112,7 @@ namespace UnityMeshSimplifier
                     case 9:
                         return m9;
                     default:
-                        throw new ArgumentOutOfRangeException(nameof(index));
+                        return m0;
                 }
             }
         }
@@ -196,7 +195,7 @@ namespace UnityMeshSimplifier
 
         #region Operators
         /// <summary>
-        /// Adds two matrixes together.
+        /// Adds two matrices together.
         /// </summary>
         /// <param name="a">The left hand side.</param>
         /// <param name="b">The right hand side.</param>
@@ -219,6 +218,7 @@ namespace UnityMeshSimplifier
         /// </summary>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        readonly
         internal double Determinant1()
         {
             double det =
@@ -236,6 +236,7 @@ namespace UnityMeshSimplifier
         /// </summary>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        readonly
         internal double Determinant2()
         {
             double det =
@@ -253,6 +254,7 @@ namespace UnityMeshSimplifier
         /// </summary>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        readonly
         internal double Determinant3()
         {
             double det =
@@ -270,6 +272,7 @@ namespace UnityMeshSimplifier
         /// </summary>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        readonly
         internal double Determinant4()
         {
             double det =
@@ -298,6 +301,7 @@ namespace UnityMeshSimplifier
         /// <param name="a33">The a33 index.</param>
         /// <returns>The determinant value.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        readonly
         public double Determinant(int a11, int a12, int a13,
             int a21, int a22, int a23,
             int a31, int a32, int a33)

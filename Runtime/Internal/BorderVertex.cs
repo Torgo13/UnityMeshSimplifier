@@ -32,6 +32,7 @@ namespace UnityMeshSimplifier.Internal
     internal struct BorderVertex
     {
         public int index;
+        readonly
         public int hash;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -42,6 +43,7 @@ namespace UnityMeshSimplifier.Internal
         }
     }
 
+    sealed
     internal class BorderVertexComparer : IComparer<BorderVertex>
     {
         public static readonly BorderVertexComparer instance = new BorderVertexComparer();

@@ -26,33 +26,36 @@ SOFTWARE.
 
 using System.Runtime.CompilerServices;
 
+#if OPTIMISATION
+using static UnityMeshSimplifier.MeshUtils;
+#endif // OPTIMISATION
+
 namespace UnityMeshSimplifier.Internal
 {
+    sealed
     internal class UVChannels<TVec>
 #if USING_COLLECTIONS
         : System.IDisposable where TVec : unmanaged
 #endif // USING_COLLECTIONS
     {
+#if OPTIMISATION
+        private readonly ResizableArray<TVec>?[] channels;
+        private readonly TVec[]?[] channelsData;
+#else
         private static readonly int UVChannelCount = MeshUtils.UVChannelCount;
 
         private ResizableArray<TVec>[] channels = null;
         private TVec[][] channelsData = null;
+#endif // OPTIMISATION
 
-        public TVec[][] Data
+        public TVec[]?[] Data
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 for (int i = 0; i < UVChannelCount; i++)
                 {
-                    if (channels[i] != null)
-                    {
-                        channelsData[i] = channels[i].Data;
-                    }
-                    else
-                    {
-                        channelsData[i] = null;
-                    }
+                    channelsData[i] = channels[i]?.Data ?? null;
                 }
                 return channelsData;
             }
@@ -62,7 +65,7 @@ namespace UnityMeshSimplifier.Internal
         /// Gets or sets a specific channel by index.
         /// </summary>
         /// <param name="index">The channel index.</param>
-        public ResizableArray<TVec> this[int index]
+        public ResizableArray<TVec>? this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get { return channels[index]; }
@@ -90,15 +93,12 @@ namespace UnityMeshSimplifier.Internal
         /// Resizes all channels at once.
         /// </summary>
         /// <param name="capacity">The new capacity.</param>
-        /// <param name="trimExess">If exess memory should be trimmed.</param>
-        public void Resize(int capacity, bool trimExess = false)
+        /// <param name="trimExcess">If excess memory should be trimmed.</param>
+        public void Resize(int capacity, bool trimExcess = false)
         {
             for (int i = 0; i < UVChannelCount; i++)
             {
-                if (channels[i] != null)
-                {
-                    channels[i].Resize(capacity, trimExess);
-                }
+                channels[i]?.Resize(capacity, trimExcess);
             }
         }
     }
