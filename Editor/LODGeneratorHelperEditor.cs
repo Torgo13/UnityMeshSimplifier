@@ -687,10 +687,11 @@ namespace UnityMeshSimplifier.Editor
             }
 
             UnityEngine.Pool.ListPool<GameObject>.Release(notChild);
-            var renderers = UnityEngine.Pool.ListPool<Renderer>.Get();
-            foreach (var gameObject in childGameObjects)
+
+            if (searchChildren)
             {
-                if (searchChildren)
+                var renderers = UnityEngine.Pool.ListPool<Renderer>.Get();
+                foreach (var gameObject in childGameObjects)
                 {
                     renderers.Clear();
                     gameObject.GetComponentsInChildren<Renderer>(renderers);
@@ -702,17 +703,20 @@ namespace UnityMeshSimplifier.Editor
                         }
                     }
                 }
-                else
+
+                UnityEngine.Pool.ListPool<Renderer>.Release(renderers);
+            }
+            else
+            {
+                foreach (var gameObject in childGameObjects)
                 {
-                    var renderer = gameObject.GetComponent<Renderer>();
-                    if (renderer != null)
+                    if (gameObject.TryGetComponent<Renderer>(out var renderer))
                     {
                         rendererList.Add(renderer);
                     }
                 }
             }
 
-            UnityEngine.Pool.ListPool<Renderer>.Release(renderers);
             return rendererList;
         }
 
