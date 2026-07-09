@@ -838,7 +838,7 @@ namespace UnityMeshSimplifier
             {
                 if (shader.GetPropertyType(propertyIndex) == UnityEngine.Rendering.ShaderPropertyType.Texture)
                 {
-                    string propertyName = shader.GetPropertyName(propertyIndex);
+                    int propertyName = shader.GetPropertyNameId(propertyIndex);
                     var texture = material.GetTexture(propertyName);
                     DestroyLODAsset(texture);
                 }
