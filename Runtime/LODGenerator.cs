@@ -77,7 +77,7 @@ namespace UnityMeshSimplifier
         /// </summary>
         /// <param name="generatorHelper">The LOD generator helper.</param>
         /// <returns>The generated LOD Group.</returns>
-        public static LODGroup? GenerateLODs(LODGeneratorHelper generatorHelper)
+        public static LODGroup? GenerateLODs(LODGeneratorHelper? generatorHelper)
         {
             if (generatorHelper == null)
                 throw new System.ArgumentNullException(nameof(generatorHelper));
@@ -161,6 +161,9 @@ namespace UnityMeshSimplifier
             using var _1 = UnityEngine.Pool.ListPool<Renderer>.Get(out var levelRenderers);
             using var _2 = UnityEngine.Pool.ListPool<RendererInfo>.Get(out var staticRenderers);
             using var _3 = UnityEngine.Pool.ListPool<RendererInfo>.Get(out var skinnedRenderers);
+            using var _4 = UnityEngine.Pool.ListPool<MeshRenderer>.Get(out var meshRenderers);
+            using var _5 = UnityEngine.Pool.ListPool<SkinnedMeshRenderer>.Get(out var skinnedMeshRenderers);
+            using var _6 = UnityEngine.Pool.ListPool<SkinnedMeshRenderer>.Get(out var combineRenderers);
             var lods = new LOD[levels.Length];
             for (int levelIndex = 0; levelIndex < levels.Length; levelIndex++)
             {
@@ -177,23 +180,31 @@ namespace UnityMeshSimplifier
 
                 if (originalLevelRenderers != null && originalLevelRenderers.Length > 0)
                 {
-                    var meshRenderers = (from renderer in originalLevelRenderers
-                                         let meshFilter = renderer.GetComponent<MeshFilter>()
-                                         where renderer.enabled && renderer as MeshRenderer != null
-                                         && meshFilter != null
-                                         && meshFilter.sharedMesh != null
-                                         select renderer as MeshRenderer).ToArray();
-                    var skinnedMeshRenderers = (from renderer in originalLevelRenderers
-                                                where renderer.enabled && renderer as SkinnedMeshRenderer != null
-                                                && ((SkinnedMeshRenderer)renderer).sharedMesh != null
-                                                select renderer as SkinnedMeshRenderer).ToArray();
+                    meshRenderers.Clear();
+                    skinnedMeshRenderers.Clear();
+                    foreach (var renderer in originalLevelRenderers)
+                    {
+                        if (renderer is SkinnedMeshRenderer skinnedMeshRenderer
+                            && skinnedMeshRenderer.enabled
+                            && skinnedMeshRenderer.sharedMesh != null)
+                        {
+                            skinnedMeshRenderers.Add(skinnedMeshRenderer);
+                        }
+                        else if (renderer.TryGetComponent<MeshFilter>(out var meshFilter)
+                            && meshFilter.sharedMesh != null
+                            && renderer is MeshRenderer meshRenderer
+                            && meshRenderer.enabled)
+                        {
+                            meshRenderers.Add(meshRenderer);
+                        }
+                    }
 
                     staticRenderers.Clear();
                     skinnedRenderers.Clear();
                     if (level.CombineMeshes)
                     {
                         staticRenderers = CombineStaticMeshes(transform, levelIndex, meshRenderers, staticRenderers);
-                        skinnedRenderers = CombineSkinnedMeshes(transform, levelIndex, skinnedMeshRenderers, skinnedRenderers);
+                        skinnedRenderers = CombineSkinnedMeshes(transform, levelIndex, skinnedMeshRenderers, combineRenderers, skinnedRenderers);
                     }
                     else
                     {
@@ -289,8 +300,10 @@ namespace UnityMeshSimplifier
             DestroyObject(lodParent.gameObject);
 
             // Destroy the LOD Group if there is one
-            var lodGroup = gameObject.GetComponent<LODGroup>();
-            DestroyObject(lodGroup);
+            if (gameObject.TryGetComponent<LODGroup>(out var lodGroup))
+            {
+                DestroyObject(lodGroup);
+            }
 
             return true;
         }
@@ -298,10 +311,10 @@ namespace UnityMeshSimplifier
 
         #region Private Methods
         // ReSharper disable Unity.PerformanceAnalysis
-        private static List<RendererInfo> GetStaticRenderers(MeshRenderer[] renderers,
+        private static List<RendererInfo> GetStaticRenderers(List<MeshRenderer> renderers,
             List<RendererInfo> newRenderers)
         {
-            for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+            for (int rendererIndex = 0; rendererIndex < renderers.Count; rendererIndex++)
             {
                 var renderer = renderers[rendererIndex];
                 var meshFilter = renderer.GetComponent<MeshFilter>();
@@ -332,10 +345,10 @@ namespace UnityMeshSimplifier
         }
 
         // ReSharper disable Unity.PerformanceAnalysis
-        private static List<RendererInfo> GetSkinnedRenderers(SkinnedMeshRenderer[] renderers,
+        private static List<RendererInfo> GetSkinnedRenderers(List<SkinnedMeshRenderer> renderers,
             List<RendererInfo> newRenderers)
         {
-            for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
+            for (int rendererIndex = 0; rendererIndex < renderers.Count; rendererIndex++)
             {
                 var renderer = renderers[rendererIndex];
 
@@ -361,10 +374,10 @@ namespace UnityMeshSimplifier
             return newRenderers;
         }
 
-        private static List<RendererInfo> CombineStaticMeshes(Transform transform, int levelIndex, MeshRenderer[] renderers,
+        private static List<RendererInfo> CombineStaticMeshes(Transform transform, int levelIndex, List<MeshRenderer> renderers,
             List<RendererInfo> newRenderers)
         {
-            if (renderers.Length == 0)
+            if (renderers.Count == 0)
 #if OPTIMISATION_NULL
                 return newRenderers;
 #else
@@ -393,10 +406,10 @@ namespace UnityMeshSimplifier
         }
 
         // ReSharper disable Unity.PerformanceAnalysis
-        private static List<RendererInfo> CombineSkinnedMeshes(Transform transform, int levelIndex, SkinnedMeshRenderer[] renderers,
-            List<RendererInfo> newRenderers)
+        private static List<RendererInfo> CombineSkinnedMeshes(Transform transform, int levelIndex, List<SkinnedMeshRenderer> renderers,
+            List<SkinnedMeshRenderer> combineRenderers, List<RendererInfo> newRenderers)
         {
-            if (renderers.Length == 0)
+            if (renderers.Count == 0)
 #if OPTIMISATION_NULL
                 return newRenderers;
 #else
@@ -411,9 +424,15 @@ namespace UnityMeshSimplifier
             var renderersWithoutMesh = (from renderer in renderers
                                         where renderer.sharedMesh == null
                                         select renderer);
-            var combineRenderers = (from renderer in renderers
-                                    where renderer.sharedMesh != null && renderer.sharedMesh.blendShapeCount == 0
-                                    select renderer).ToArray();
+            combineRenderers.Clear();
+            foreach (var renderer in renderers)
+            {
+                var sharedMesh = renderer.sharedMesh;
+                if (sharedMesh != null && sharedMesh.blendShapeCount == 0)
+                {
+                    combineRenderers.Add(renderer);
+                }
+            }
 
             // Warn about renderers without a mesh
             foreach (var renderer in renderersWithoutMesh)
@@ -437,7 +456,7 @@ namespace UnityMeshSimplifier
                 });
             }
 
-            if (combineRenderers.Length > 0)
+            if (combineRenderers.Count > 0)
             {
                 Material[] combinedMaterials;
                 Transform[]? combinedBones;
@@ -569,19 +588,27 @@ namespace UnityMeshSimplifier
             return skinnedMeshRenderer;
         }
 
+#if OPTIMISATION
+        private static Transform? FindBestRootBone(Transform transform, List<SkinnedMeshRenderer> skinnedMeshRenderers)
+        {
+            if (skinnedMeshRenderers.Count == 0)
+                return null;
+
+            Vector3 position = transform.position;
+            Transform? bestBone = null;
+            float bestDistance = float.MaxValue;
+            for (int i = 0; i < skinnedMeshRenderers.Count; i++)
+#else
         private static Transform? FindBestRootBone(Transform transform, SkinnedMeshRenderer[] skinnedMeshRenderers)
         {
-#if OPTIMISATION_NULL
-            if (skinnedMeshRenderers.Length == 0)
-#else
             if (skinnedMeshRenderers == null || skinnedMeshRenderers.Length == 0)
-#endif // OPTIMISATION_NULL
                 return null;
 
             Vector3 position = transform.position;
             Transform? bestBone = null;
             float bestDistance = float.MaxValue;
             for (int i = 0; i < skinnedMeshRenderers.Length; i++)
+#endif // OPTIMISATION
             {
                 if (skinnedMeshRenderers[i] == null || skinnedMeshRenderers[i].rootBone == null)
                     continue;
@@ -660,16 +687,19 @@ namespace UnityMeshSimplifier
             meshSimplifier.SimplifyMesh(quality);
 
             var simplifiedMesh = meshSimplifier.ToMesh();
+#if OPTIMISATION
+            simplifiedMesh.SetBindposes(mesh.GetBindposes());
+#else
             simplifiedMesh.bindposes = mesh.bindposes;
+#endif // OPTIMISATION
             return simplifiedMesh;
         }
 
         private static void DestroyObject(Object obj)
         {
-            if (obj == null)
 #if OPTIMISATION_NULL
-                return;
 #else
+            if (obj == null)
                 throw new System.ArgumentNullException(nameof(obj));
 #endif // OPTIMISATION_NULL
 
@@ -750,18 +780,25 @@ namespace UnityMeshSimplifier
 
 #if OPTIMISATION
             var sb = new System.Text.StringBuilder();
-            gameObjectName = IOUtils.MakeSafeFileName(gameObjectName, sb);
-            rendererName = IOUtils.MakeSafeFileName(rendererName, sb);
+            if (string.IsNullOrEmpty(saveAssetsPath))
+            {
+                gameObjectName = IOUtils.MakeSafeFileName(gameObjectName, sb);
+                rendererName = IOUtils.MakeSafeFileName(rendererName, sb);
+            }
+
             meshName = IOUtils.MakeSafeFileName(meshName, sb);
+
+            string finalSaveAssetsPath = GetFinalSaveAssetsPath(gameObjectName, rendererName, saveAssetsPath);
+            string saveAssetPath = string.Format("{0}/{1:00}_{2}.mesh", finalSaveAssetsPath, levelIndex, meshName);
 #else
             gameObjectName = IOUtils.MakeSafeFileName(gameObjectName);
             rendererName = IOUtils.MakeSafeFileName(rendererName);
             meshName = IOUtils.MakeSafeFileName(meshName);
-#endif // OPTIMISATION
             meshName = string.Format("{0:00}_{1}", levelIndex, meshName);
 
             string finalSaveAssetsPath = GetFinalSaveAssetsPath(gameObjectName, rendererName, saveAssetsPath);
             string saveAssetPath = string.Format("{0}/{1}.mesh", finalSaveAssetsPath, meshName);
+#endif // OPTIMISATION
             SaveAsset(asset, saveAssetPath);
         }
 
@@ -824,8 +861,11 @@ namespace UnityMeshSimplifier
 
         private static void DestroyLODMaterialAsset(Material material)
         {
+#if OPTIMISATION_NULL
+#else
             if (material == null)
                 return;
+#endif // OPTIMISATION_NULL
 
             var shader = material.shader;
             if (shader == null)
@@ -859,7 +899,7 @@ namespace UnityMeshSimplifier
             DestroyLODAsset(material);
         }
 
-        private static void DestroyLODAsset(Object asset)
+        private static void DestroyLODAsset(Object? asset)
         {
             if (asset == null)
                 return;

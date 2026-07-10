@@ -44,18 +44,24 @@ namespace UnityMeshSimplifier
         /// <param name="renderers">The array of mesh renderers to combine.</param>
         /// <param name="resultMaterials">The resulting materials for the combined mesh.</param>
         /// <returns>The combined mesh.</returns>
-        public static Mesh CombineMeshes(Transform rootTransform, MeshRenderer[] renderers, out Material[] resultMaterials)
+        public static Mesh CombineMeshes(Transform rootTransform, List<MeshRenderer> renderers, out Material[] resultMaterials)
         {
+#if OPTIMISATION_NULL
+#else
             if (rootTransform == null)
                 throw new System.ArgumentNullException(nameof(rootTransform));
             else if (renderers == null)
                 throw new System.ArgumentNullException(nameof(renderers));
+#endif // OPTIMISATION_NULL
 
-            var meshes = new Mesh[renderers.Length];
-            var transforms = new Matrix4x4[renderers.Length];
-            var materials = new Material[renderers.Length][];
-
-            for (int i = 0; i < renderers.Length; i++)
+            var renderersLength = renderers.Count;
+            var meshes = new Mesh[renderersLength];
+            var transforms = new Unity.Collections.NativeArray<Matrix4x4>(renderersLength,
+                Unity.Collections.Allocator.Temp,
+                Unity.Collections.NativeArrayOptions.UninitializedMemory);
+            var materials = new Material[renderersLength][];
+            var worldToLocalMatrix = rootTransform.worldToLocalMatrix;
+            for (int i = 0; i < renderersLength; i++)
             {
                 var renderer = renderers[i];
                 if (renderer == null)
@@ -71,7 +77,7 @@ namespace UnityMeshSimplifier
                     throw new System.ArgumentException(string.Format("The mesh in the mesh filter for renderer at index {0} is not readable.", i), nameof(renderers));
 
                 meshes[i] = meshFilter.sharedMesh;
-                transforms[i] = rootTransform.worldToLocalMatrix * rendererTransform.localToWorldMatrix;
+                transforms[i] = worldToLocalMatrix * rendererTransform.localToWorldMatrix;
                 materials[i] = renderer.sharedMaterials;
             }
 
@@ -86,6 +92,17 @@ namespace UnityMeshSimplifier
         /// <param name="resultMaterials">The resulting materials for the combined mesh.</param>
         /// <param name="resultBones">The resulting bones for the combined mesh.</param>
         /// <returns>The combined mesh.</returns>
+#if OPTIMISATION
+        public static Mesh CombineMeshes(Transform rootTransform, List<SkinnedMeshRenderer> renderers, out Material[] resultMaterials, out Transform[]? resultBones)
+        {
+            var renderersLength = renderers.Count;
+            var meshes = new Mesh[renderersLength];
+            var transforms = new Matrix4x4[renderersLength];
+            var materials = new Material[renderersLength][];
+            var bones = new Transform[renderersLength][];
+
+            for (int i = 0; i < renderersLength; i++)
+#else
         public static Mesh CombineMeshes(Transform rootTransform, SkinnedMeshRenderer[] renderers, out Material[] resultMaterials, out Transform[]? resultBones)
         {
             if (rootTransform == null)
@@ -99,6 +116,7 @@ namespace UnityMeshSimplifier
             var bones = new Transform[renderers.Length][];
 
             for (int i = 0; i < renderers.Length; i++)
+#endif // OPTIMISATION
             {
                 var renderer = renderers[i];
                 if (renderer == null)
@@ -126,7 +144,7 @@ namespace UnityMeshSimplifier
         /// <param name="materials">The array of materials for each mesh to combine.</param>
         /// <param name="resultMaterials">The resulting materials for the combined mesh.</param>
         /// <returns>The combined mesh.</returns>
-        public static Mesh CombineMeshes(Mesh[] meshes, Matrix4x4[] transforms, Material[][] materials, out Material[] resultMaterials)
+        public static Mesh CombineMeshes(Mesh[] meshes, System.ReadOnlySpan<Matrix4x4> transforms, Material[][] materials, out Material[] resultMaterials)
         {
 #if OPTIMISATION_NULL
 #else
@@ -151,7 +169,7 @@ namespace UnityMeshSimplifier
         /// <param name="resultMaterials">The resulting materials for the combined mesh.</param>
         /// <param name="resultBones">The resulting bones for the combined mesh.</param>
         /// <returns>The combined mesh.</returns>
-        public static Mesh CombineMeshes(Mesh[] meshes, Matrix4x4[] transforms, Material[][] materials, Transform[][]? bones, out Material[] resultMaterials, out Transform[]? resultBones)
+        public static Mesh CombineMeshes(Mesh[] meshes, System.ReadOnlySpan<Matrix4x4> transforms, Material[][] materials, Transform[][]? bones, out Material[] resultMaterials, out Transform[]? resultBones)
         {
 #if OPTIMISATION_NULL
             if (transforms.Length != meshes.Length)

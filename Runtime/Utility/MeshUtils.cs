@@ -315,12 +315,115 @@ namespace UnityMeshSimplifier
             return newMesh;
         }
 
+        /// <inheritdoc cref="CreateMesh(Vector3[], int[][], Vector3[], Vector4[], Color[], BoneWeight[], List{Vector2}[], List{Vector3}[], List{Vector4}[], Matrix4x4[], ReadOnlySpan{BlendShape})"/>
+        public static Mesh CreateMesh(Unity.Collections.NativeArray<Vector3> vertices, int[][] indices, Vector3[]? normals, Vector4[]? tangents, Color[]? colors, BoneWeight[]? boneWeights, List<Vector2>[]? uvs2D, List<Vector3>[]? uvs3D, List<Vector4>[]? uvs4D, Matrix4x4[] bindposes, ReadOnlySpan<BlendShape> blendShapes)
+        {
+#if OPTIMISATION_NULL
+#else
+            if (vertices == null)
+                throw new ArgumentNullException(nameof(vertices));
+            else if (indices == null)
+                throw new ArgumentNullException(nameof(indices));
+#endif // OPTIMISATION_NULL
+
+            var newMesh = new Mesh();
+            int subMeshCount = indices.Length;
+
+            IndexFormat indexFormat;
+            var indexMinMax = MeshUtils.GetSubMeshIndexMinMax(indices, out indexFormat);
+            newMesh.indexFormat = indexFormat;
+
+            if (bindposes != null && bindposes.Length > 0)
+            {
+                newMesh.bindposes = bindposes;
+            }
+
+            newMesh.subMeshCount = subMeshCount;
+            newMesh.SetVertices(vertices);
+            if (normals != null && normals.Length > 0)
+            {
+                newMesh.SetNormals(normals);
+            }
+            if (tangents != null && tangents.Length > 0)
+            {
+                newMesh.SetTangents(tangents);
+            }
+            if (colors != null && colors.Length > 0)
+            {
+                newMesh.SetColors(colors);
+            }
+            if (boneWeights != null && boneWeights.Length > 0)
+            {
+                newMesh.boneWeights = boneWeights;
+            }
+
+            if (uvs2D != null)
+            {
+                for (int uvChannel = 0; uvChannel < uvs2D.Length; uvChannel++)
+                {
+                    if (uvs2D[uvChannel] != null && uvs2D[uvChannel].Count > 0)
+                    {
+                        newMesh.SetUVs(uvChannel, uvs2D[uvChannel]);
+                    }
+                }
+            }
+
+            if (uvs3D != null)
+            {
+                for (int uvChannel = 0; uvChannel < uvs3D.Length; uvChannel++)
+                {
+                    if (uvs3D[uvChannel] != null && uvs3D[uvChannel].Count > 0)
+                    {
+                        newMesh.SetUVs(uvChannel, uvs3D[uvChannel]);
+                    }
+                }
+            }
+
+            if (uvs4D != null)
+            {
+                for (int uvChannel = 0; uvChannel < uvs4D.Length; uvChannel++)
+                {
+                    if (uvs4D[uvChannel] != null && uvs4D[uvChannel].Count > 0)
+                    {
+                        newMesh.SetUVs(uvChannel, uvs4D[uvChannel]);
+                    }
+                }
+            }
+
+            if (blendShapes != null)
+            {
+                MeshUtils.ApplyMeshBlendShapes(newMesh, blendShapes);
+            }
+
+            for (int subMeshIndex = 0; subMeshIndex < subMeshCount; subMeshIndex++)
+            {
+                var subMeshTriangles = indices[subMeshIndex];
+                var minMax = indexMinMax[subMeshIndex];
+                if (indexFormat == IndexFormat.UInt16 && minMax.y > ushort.MaxValue)
+                {
+                    int baseVertex = minMax.x;
+                    for (int index = 0; index < subMeshTriangles.Length; index++)
+                    {
+                        subMeshTriangles[index] -= baseVertex;
+                    }
+                    newMesh.SetTriangles(subMeshTriangles, subMeshIndex, false, baseVertex);
+                }
+                else
+                {
+                    newMesh.SetTriangles(subMeshTriangles, subMeshIndex, false, 0);
+                }
+            }
+
+            newMesh.RecalculateBounds();
+            return newMesh;
+        }
+
         /// <summary>
         /// Returns the blend shapes of a mesh.
         /// </summary>
         /// <param name="mesh">The mesh.</param>
         /// <returns>The mesh blend shapes.</returns>
-        public static BlendShape[] GetMeshBlendShapes(Mesh mesh)
+        public static Unity.Collections.NativeArray<BlendShape> GetMeshBlendShapes(Mesh mesh)
         {
 #if OPTIMISATION_NULL
 #else
@@ -332,12 +435,14 @@ namespace UnityMeshSimplifier
             int blendShapeCount = mesh.blendShapeCount;
             if (blendShapeCount == 0)
 #if OPTIMISATION_NULL
-                return Array.Empty<BlendShape>();
+                return default;
 #else
                 return null;
 #endif // OPTIMISATION_NULL
 
-            var blendShapes = new BlendShape[blendShapeCount];
+            var blendShapes = new Unity.Collections.NativeArray<BlendShape>(blendShapeCount,
+                Unity.Collections.Allocator.Temp,
+                Unity.Collections.NativeArrayOptions.UninitializedMemory);
 
             for (int blendShapeIndex = 0; blendShapeIndex < blendShapeCount; blendShapeIndex++)
             {

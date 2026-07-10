@@ -44,6 +44,9 @@ namespace UnityMeshSimplifier
         internal static string MakeSafeFileName(string name,
 		    StringBuilder sb)
         {
+            if (-1 == name.IndexOfAny(invalidFileNameChars))
+                return name;
+
             _ = sb.Clear();
 #else
         internal static string MakeSafeFileName(string name)
@@ -56,7 +59,11 @@ namespace UnityMeshSimplifier
             for (int i = 0; i < name.Length; i++)
             {
                 char c = name[i];
+#if OPTIMISATION
+                if (-1 == Array.IndexOf(invalidFileNameChars, c))
+#else
                 if (!invalidFileNameChars.Contains(c))
+#endif // OPTIMISATION
                 {
                     sb.Append(c);
                 }
