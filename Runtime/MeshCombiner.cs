@@ -367,10 +367,7 @@ namespace UnityMeshSimplifier
             var resultBindposes = new Unity.Collections.NativeArray<Matrix4x4>(usedBindposes.Count,
                 Unity.Collections.Allocator.Temp,
                 Unity.Collections.NativeArrayOptions.UninitializedMemory);
-            for (int i = 0; i < resultBindposes.Length; i++)
-            {
-                resultBindposes[i] = usedBindposes[i];
-            }
+            usedBindposes.AsReadOnlySpan().CopyTo(resultBindposes.AsSpan());
             resultMaterials = usedMaterials.ToArray();
             resultBones = (usedBones.Count > 0 ? usedBones.ToArray() : null);
 
@@ -492,7 +489,7 @@ namespace UnityMeshSimplifier
         {
             for (int i = 0; i < boneWeights.Length; i++)
             {
-                BoneWeight boneWeight = boneWeights[i];
+                ref BoneWeight boneWeight = ref boneWeights[i];
                 if (boneWeights[i].weight0 > 0)
                 {
                     boneWeight.boneIndex0 = boneIndices[boneWeights[i].boneIndex0];
@@ -509,8 +506,6 @@ namespace UnityMeshSimplifier
                 {
                     boneWeight.boneIndex3 = boneIndices[boneWeights[i].boneIndex3];
                 }
-
-                boneWeights[i] = boneWeight;
             }
         }
 

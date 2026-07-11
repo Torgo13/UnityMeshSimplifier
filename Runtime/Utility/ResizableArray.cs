@@ -27,11 +27,11 @@ SOFTWARE.
 using System;
 using System.Runtime.CompilerServices;
 
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
 
 namespace UnityMeshSimplifier
 {
@@ -39,7 +39,7 @@ namespace UnityMeshSimplifier
     /// A resizable array with the goal of being quicker than <see cref="System.Collections.Generic.List{T}"/>.
     /// </summary>
     /// <typeparam name="T">The item type.</typeparam>
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
     internal struct ResizableArray<T>
         : IEnumerable<T>, IEquatable<ResizableArray<T>>, INativeDisposable where T : unmanaged
     {
@@ -328,5 +328,5 @@ namespace UnityMeshSimplifier
         }
         #endregion
     }
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
 }

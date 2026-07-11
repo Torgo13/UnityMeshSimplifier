@@ -154,16 +154,13 @@ namespace UnityMeshSimplifier
                 allRenderers = GetChildRenderersForLOD(gameObject);
             }
 
-            using var _0 = UnityEngine.Pool.ListPool<Renderer>.Get(out var renderersToDisable);
-            int capacity = allRenderers?.Length ?? 10;
-            if (renderersToDisable.Capacity < capacity)
-                renderersToDisable.Capacity = capacity;
-            using var _1 = UnityEngine.Pool.ListPool<Renderer>.Get(out var levelRenderers);
-            using var _2 = UnityEngine.Pool.ListPool<RendererInfo>.Get(out var staticRenderers);
-            using var _3 = UnityEngine.Pool.ListPool<RendererInfo>.Get(out var skinnedRenderers);
-            using var _4 = UnityEngine.Pool.ListPool<MeshRenderer>.Get(out var meshRenderers);
-            using var _5 = UnityEngine.Pool.ListPool<SkinnedMeshRenderer>.Get(out var skinnedMeshRenderers);
-            using var _6 = UnityEngine.Pool.ListPool<SkinnedMeshRenderer>.Get(out var combineRenderers);
+            var renderersToDisable = UnityEngine.Pool.HashSetPool<Renderer>.Get();
+            renderersToDisable.EnsureCapacity(allRenderers?.Length ?? 10);
+            var staticRenderers = UnityEngine.Pool.ListPool<RendererInfo>.Get();
+            var skinnedRenderers = UnityEngine.Pool.ListPool<RendererInfo>.Get();
+            var meshRenderers = UnityEngine.Pool.ListPool<MeshRenderer>.Get();
+            var skinnedMeshRenderers = UnityEngine.Pool.ListPool<SkinnedMeshRenderer>.Get();
+            var combineRenderers = UnityEngine.Pool.ListPool<SkinnedMeshRenderer>.Get();
             var lods = new LOD[levels.Length];
             for (int levelIndex = 0; levelIndex < levels.Length; levelIndex++)
             {
@@ -173,10 +170,7 @@ namespace UnityMeshSimplifier
                 ParentAndResetTransform(levelTransform, lodParent);
 
                 Renderer[]? originalLevelRenderers = allRenderers ?? level.Renderers;
-                levelRenderers.Clear();
-                capacity = originalLevelRenderers?.Length ?? 0;
-                if (levelRenderers.Capacity < capacity)
-                    levelRenderers.Capacity = capacity;
+                Renderer[] levelRenderers = System.Array.Empty<Renderer>();
 
                 if (originalLevelRenderers != null && originalLevelRenderers.Length > 0)
                 {
@@ -212,6 +206,8 @@ namespace UnityMeshSimplifier
                         skinnedRenderers = GetSkinnedRenderers(skinnedMeshRenderers.AsReadOnlySpan(), skinnedRenderers);
                     }
 
+                    levelRenderers = new Renderer[staticRenderers.Count + skinnedRenderers.Count];
+
 #if OPTIMISATION_NULL
 #else
                     if (staticRenderers != null)
@@ -221,7 +217,7 @@ namespace UnityMeshSimplifier
                         {
                             var renderer = staticRenderers[rendererIndex];
                             var levelRenderer = CreateLevelRenderer(gameObject, levelIndex, level, levelTransform, rendererIndex, renderer, simplificationOptions, saveAssetsPath);
-                            levelRenderers.Add(levelRenderer);
+                            levelRenderers[rendererIndex] = levelRenderer;
                         }
                     }
 
@@ -234,27 +230,32 @@ namespace UnityMeshSimplifier
                         {
                             var renderer = skinnedRenderers[rendererIndex];
                             var levelRenderer = CreateLevelRenderer(gameObject, levelIndex, level, levelTransform, rendererIndex, renderer, simplificationOptions, saveAssetsPath);
-                            levelRenderers.Add(levelRenderer);
+                            levelRenderers[rendererIndex + staticRenderers.Count] = levelRenderer;
                         }
                     }
 
                     foreach (var renderer in originalLevelRenderers)
                     {
-                        if (!renderersToDisable.Contains(renderer))
-                        {
-                            renderersToDisable.Add(renderer);
-                        }
+                        renderersToDisable.Add(renderer);
                     }
                 }
 
-                lods[levelIndex] = new LOD(level.ScreenRelativeTransitionHeight, levelRenderers.ToArray());
+                lods[levelIndex] = new LOD(level.ScreenRelativeTransitionHeight, levelRenderers);
             }
 
-            CreateBackup(gameObject, renderersToDisable.ToArray());
-            foreach (var renderer in renderersToDisable)
+            var disable = renderersToDisable.ToArray();
+            CreateBackup(gameObject, disable);
+            foreach (var renderer in disable)
             {
                 renderer.enabled = false;
             }
+
+            UnityEngine.Pool.HashSetPool<Renderer>.Release(renderersToDisable);
+            UnityEngine.Pool.ListPool<RendererInfo>.Release(staticRenderers);
+            UnityEngine.Pool.ListPool<RendererInfo>.Release(skinnedRenderers);
+            UnityEngine.Pool.ListPool<MeshRenderer>.Release(meshRenderers);
+            UnityEngine.Pool.ListPool<SkinnedMeshRenderer>.Release(skinnedMeshRenderers);
+            UnityEngine.Pool.ListPool<SkinnedMeshRenderer>.Release(combineRenderers);
 
             lodGroup.animateCrossFading = false;
             lodGroup.SetLODs(lods);
@@ -666,9 +667,9 @@ namespace UnityMeshSimplifier
 
         private static Mesh SimplifyMesh(Mesh mesh, float quality, in SimplificationOptions options)
         {
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
             using
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
             var meshSimplifier = new MeshSimplifier();
             meshSimplifier.SimplificationOptions = options;
             meshSimplifier.Initialize(mesh);

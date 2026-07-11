@@ -34,9 +34,9 @@ namespace UnityMeshSimplifier.Internal
 {
     sealed
     internal class UVChannels<TVec>
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
         : System.IDisposable where TVec : unmanaged
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
     {
 #if OPTIMISATION
         private readonly ResizableArray<TVec>?[] channels;
@@ -75,19 +75,20 @@ namespace UnityMeshSimplifier.Internal
 
         public UVChannels()
         {
-            channels = new ResizableArray<TVec>[UVChannelCount];
+            channels = new ResizableArray<TVec>?[UVChannelCount];
             channelsData = new TVec[UVChannelCount][];
         }
 
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
         public void Dispose()
         {
             foreach (var channel in channels)
             {
-                channel.Dispose();
+                if (channel.HasValue)
+                    channel.Value.Dispose();
             }
         }
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
 
         /// <summary>
         /// Resizes all channels at once.

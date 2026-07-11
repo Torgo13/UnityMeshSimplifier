@@ -29,12 +29,12 @@ using UnityEngine;
 
 namespace UnityMeshSimplifier.Internal
 {
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
     internal readonly struct BlendShapeFrameContainer : Unity.Collections.INativeDisposable
 #else
     sealed
     internal class BlendShapeFrameContainer
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
     {
         private readonly float frameWeight;
         private readonly ResizableArray<Vector3> deltaVertices;
@@ -80,7 +80,7 @@ namespace UnityMeshSimplifier.Internal
             return new BlendShapeFrame(frameWeight, resultVertices, resultNormals, resultTangents);
         }
 
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
         #region INativeDisposable
         public Unity.Jobs.JobHandle Dispose(Unity.Jobs.JobHandle inputDeps)
             => deltaTangents.Dispose(deltaNormals.Dispose(deltaVertices.Dispose(inputDeps)));
@@ -91,6 +91,6 @@ namespace UnityMeshSimplifier.Internal
             deltaTangents.Dispose();
         }
         #endregion // INativeDisposable
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
     }
 }

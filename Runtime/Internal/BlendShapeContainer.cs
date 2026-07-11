@@ -29,21 +29,22 @@ using UnityEngine;
 
 namespace UnityMeshSimplifier.Internal
 {
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
     internal readonly struct BlendShapeContainer : Unity.Collections.INativeDisposable
     {
         private readonly Unity.Collections.NativeText shapeName;
         private readonly Unity.Collections.NativeArray<BlendShapeFrameContainer> frames;
 #else
+    sealed
     internal class BlendShapeContainer
     {
         private readonly string shapeName;
         private readonly BlendShapeFrameContainer[] frames;
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
 
         public BlendShapeContainer(BlendShape blendShape)
         {
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
             shapeName = new Unity.Collections.NativeText(blendShape.ShapeName, Unity.Collections.Allocator.Domain);
             frames = new Unity.Collections.NativeArray<BlendShapeFrameContainer>(blendShape.Frames.Length,
                 Unity.Collections.Allocator.Domain,
@@ -51,7 +52,7 @@ namespace UnityMeshSimplifier.Internal
 #else
             shapeName = blendShape.ShapeName;
             frames = new BlendShapeFrameContainer[blendShape.Frames.Length];
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
             for (int i = 0; i < frames.Length; i++)
             {
                 frames[i] = new BlendShapeFrameContainer(blendShape.Frames[i]);
@@ -76,11 +77,11 @@ namespace UnityMeshSimplifier.Internal
             }
         }
 
-        public void Resize(int length, bool trimExess = false)
+        public void Resize(int length, bool trimExcess = false)
         {
             for (int i = 0; i < frames.Length; i++)
             {
-                frames[i].Resize(length, trimExess);
+                frames[i].Resize(length, trimExcess);
             }
         }
 
@@ -94,7 +95,7 @@ namespace UnityMeshSimplifier.Internal
             return new BlendShape(shapeName, shapeFrames);
         }
 
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
         #region INativeDisposable
         public Unity.Jobs.JobHandle Dispose(Unity.Jobs.JobHandle inputDeps)
         {
@@ -117,6 +118,6 @@ namespace UnityMeshSimplifier.Internal
             shapeName.Dispose();
         }
         #endregion // INativeDisposable
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
     }
 }

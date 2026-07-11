@@ -54,9 +54,9 @@ namespace UnityMeshSimplifier
     /// Deeply based on https://github.com/sp4cerat/Fast-Quadric-Mesh-Simplification but rewritten completely in C#.
     /// </summary>
     public sealed class MeshSimplifier
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
         : IDisposable
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
     {
         #region Consts & Static Read-Only
         private const int TriangleEdgeCount = 3;
@@ -502,6 +502,20 @@ namespace UnityMeshSimplifier
             InitializeVertexAttribute(colors, ref vertColors, "colors");
         }
 
+        public void SetVertices(ReadOnlySpan<Vector3> value)
+        {
+            if (value == null)
+                throw new ArgumentNullException(nameof(value));
+
+            bindposes = null;
+            vertices.Resize(value.Length);
+            var vertArr = vertices.Data;
+            for (int i = 0; i < value.Length; i++)
+            {
+                vertArr[i] = new Vertex(i, value[i]);
+            }
+        }
+
         public Unity.Collections.NativeArray<Vector3> VerticesSpan
         {
             get
@@ -519,6 +533,7 @@ namespace UnityMeshSimplifier
 
                 return vertices;
             }
+            set => SetVertices(value);
         }
         public ReadOnlySpan<Vector3> NormalsSpan => vertNormals?.Data;
         public ReadOnlySpan<Vector4> TangentsSpan => vertTangents?.Data;
@@ -536,7 +551,7 @@ namespace UnityMeshSimplifier
 #endif // OPTIMISATION
         #endregion
 
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
         public void Dispose()
         {
             ClearBlendShapes();
@@ -544,15 +559,15 @@ namespace UnityMeshSimplifier
             vertUV3D?.Dispose();
             vertUV4D?.Dispose();
         }
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
 
         #region Private Methods
         #region Initialize Vertex Attribute
         // ReSharper disable Unity.PerformanceAnalysis
         private void InitializeVertexAttribute<T>(ReadOnlySpan<T> attributeValues, ref ResizableArray<T>? attributeArray, string attributeName)
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
             where T : unmanaged
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
         {
             if (attributeValues == null)
                 return;
@@ -2175,7 +2190,7 @@ namespace UnityMeshSimplifier
         {
             if (blendShapes != null)
             {
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
                 foreach (var blendShape in blendShapes)
                 {
                     blendShape.Dispose();
@@ -2186,7 +2201,7 @@ namespace UnityMeshSimplifier
 #else
                 blendShapes.Clear();
                 blendShapes = null;
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
             }
         }
 
@@ -2253,12 +2268,15 @@ namespace UnityMeshSimplifier
                 throw new ArgumentNullException(nameof(mesh));
 #endif // OPTIMISATION_NULL
 
-            this.Vertices = mesh.vertices;
 #if OPTIMISATION
-            var normals = UnityEngine.Pool.ListPool<Vector3>.Get();
-            mesh.GetNormals(normals);
-            InitializeVertexAttribute(normals.AsReadOnlySpan(), ref vertNormals, "normals");
-            UnityEngine.Pool.ListPool<Vector3>.Release(normals);
+            var vertices = UnityEngine.Pool.ListPool<Vector3>.Get();
+            mesh.GetVertices(vertices);
+            SetVertices(vertices.AsReadOnlySpan());
+            vertices.Clear();
+
+            mesh.GetNormals(vertices);
+            InitializeVertexAttribute(vertices.AsReadOnlySpan(), ref vertNormals, "normals");
+            UnityEngine.Pool.ListPool<Vector3>.Release(vertices);
 
             var tangents = UnityEngine.Pool.ListPool<Vector4>.Get();
             mesh.GetTangents(tangents);
@@ -2275,6 +2293,7 @@ namespace UnityMeshSimplifier
             InitializeVertexAttribute(boneWeights.AsReadOnlySpan(), ref vertBoneWeights, "boneWeights");
             UnityEngine.Pool.ListPool<BoneWeight>.Release(boneWeights);
 #else
+            this.Vertices = mesh.vertices;
             this.Normals = mesh.normals;
             this.Tangents = mesh.tangents;
 
@@ -2366,13 +2385,13 @@ namespace UnityMeshSimplifier
             quality = Mathf.Clamp01(quality);
 
             int deletedTris = 0;
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
             using ResizableArray<bool> deleted0 = new ResizableArray<bool>(20);
             using ResizableArray<bool> deleted1 = new ResizableArray<bool>(20);
 #else
             ResizableArray<bool> deleted0 = new ResizableArray<bool>(20);
             ResizableArray<bool> deleted1 = new ResizableArray<bool>(20);
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
             var triangles = this.triangles.Data;
             int triangleCount = this.triangles.Length;
             int startTrisCount = triangleCount;
@@ -2429,13 +2448,13 @@ namespace UnityMeshSimplifier
         public void SimplifyMeshLossless()
         {
             int deletedTris = 0;
-#if USING_COLLECTIONS
+#if OPTIMISATION_IDISPOSABLE
             using ResizableArray<bool> deleted0 = new ResizableArray<bool>(0);
             using ResizableArray<bool> deleted1 = new ResizableArray<bool>(0);
 #else
             ResizableArray<bool> deleted0 = new ResizableArray<bool>(0);
             ResizableArray<bool> deleted1 = new ResizableArray<bool>(0);
-#endif // USING_COLLECTIONS
+#endif // OPTIMISATION_IDISPOSABLE
             var triangles = this.triangles.Data;
             int triangleCount = this.triangles.Length;
             int startTrisCount = triangleCount;
