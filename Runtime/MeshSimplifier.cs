@@ -478,7 +478,7 @@ namespace UnityMeshSimplifier
             ReadOnlySpan<Color> colors)
         {
             triangles = new ResizableArray<Triangle>(0);
-            this.vertices = new ResizableArray<Vertex>(vertices.Length);
+            this.vertices = new ResizableArray<Vertex>(vertices.Length, vertices.Length);
             refs = new ResizableArray<Ref>(0);
 
             var vertArr = this.vertices.Data;
