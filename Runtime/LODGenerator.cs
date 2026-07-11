@@ -203,13 +203,13 @@ namespace UnityMeshSimplifier
                     skinnedRenderers.Clear();
                     if (level.CombineMeshes)
                     {
-                        staticRenderers = CombineStaticMeshes(transform, levelIndex, meshRenderers, staticRenderers);
-                        skinnedRenderers = CombineSkinnedMeshes(transform, levelIndex, skinnedMeshRenderers, combineRenderers, skinnedRenderers);
+                        staticRenderers = CombineStaticMeshes(transform, levelIndex, meshRenderers.AsReadOnlySpan(), staticRenderers);
+                        skinnedRenderers = CombineSkinnedMeshes(transform, levelIndex, skinnedMeshRenderers.AsReadOnlySpan(), combineRenderers, skinnedRenderers);
                     }
                     else
                     {
-                        staticRenderers = GetStaticRenderers(meshRenderers, staticRenderers);
-                        skinnedRenderers = GetSkinnedRenderers(skinnedMeshRenderers, skinnedRenderers);
+                        staticRenderers = GetStaticRenderers(meshRenderers.AsReadOnlySpan(), staticRenderers);
+                        skinnedRenderers = GetSkinnedRenderers(skinnedMeshRenderers.AsReadOnlySpan(), skinnedRenderers);
                     }
 
 #if OPTIMISATION_NULL
@@ -311,10 +311,10 @@ namespace UnityMeshSimplifier
 
         #region Private Methods
         // ReSharper disable Unity.PerformanceAnalysis
-        private static List<RendererInfo> GetStaticRenderers(List<MeshRenderer> renderers,
+        private static List<RendererInfo> GetStaticRenderers(System.ReadOnlySpan<MeshRenderer> renderers,
             List<RendererInfo> newRenderers)
         {
-            for (int rendererIndex = 0; rendererIndex < renderers.Count; rendererIndex++)
+            for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
             {
                 var renderer = renderers[rendererIndex];
                 var meshFilter = renderer.GetComponent<MeshFilter>();
@@ -345,10 +345,10 @@ namespace UnityMeshSimplifier
         }
 
         // ReSharper disable Unity.PerformanceAnalysis
-        private static List<RendererInfo> GetSkinnedRenderers(List<SkinnedMeshRenderer> renderers,
+        private static List<RendererInfo> GetSkinnedRenderers(System.ReadOnlySpan<SkinnedMeshRenderer> renderers,
             List<RendererInfo> newRenderers)
         {
-            for (int rendererIndex = 0; rendererIndex < renderers.Count; rendererIndex++)
+            for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
             {
                 var renderer = renderers[rendererIndex];
 
@@ -374,10 +374,10 @@ namespace UnityMeshSimplifier
             return newRenderers;
         }
 
-        private static List<RendererInfo> CombineStaticMeshes(Transform transform, int levelIndex, List<MeshRenderer> renderers,
+        private static List<RendererInfo> CombineStaticMeshes(Transform transform, int levelIndex, System.ReadOnlySpan<MeshRenderer> renderers,
             List<RendererInfo> newRenderers)
         {
-            if (renderers.Count == 0)
+            if (renderers.Length == 0)
 #if OPTIMISATION_NULL
                 return newRenderers;
 #else
@@ -406,10 +406,10 @@ namespace UnityMeshSimplifier
         }
 
         // ReSharper disable Unity.PerformanceAnalysis
-        private static List<RendererInfo> CombineSkinnedMeshes(Transform transform, int levelIndex, List<SkinnedMeshRenderer> renderers,
+        private static List<RendererInfo> CombineSkinnedMeshes(Transform transform, int levelIndex, System.ReadOnlySpan<SkinnedMeshRenderer> renderers,
             List<SkinnedMeshRenderer> combineRenderers, List<RendererInfo> newRenderers)
         {
-            if (renderers.Count == 0)
+            if (renderers.Length == 0)
 #if OPTIMISATION_NULL
                 return newRenderers;
 #else
@@ -418,12 +418,6 @@ namespace UnityMeshSimplifier
 
             // TODO: Support to merge sub-meshes and atlas textures
 
-            var blendShapeRenderers = (from renderer in renderers
-                                       where renderer.sharedMesh != null && renderer.sharedMesh.blendShapeCount > 0
-                                       select renderer);
-            var renderersWithoutMesh = (from renderer in renderers
-                                        where renderer.sharedMesh == null
-                                        select renderer);
             combineRenderers.Clear();
             foreach (var renderer in renderers)
             {
@@ -435,21 +429,27 @@ namespace UnityMeshSimplifier
             }
 
             // Warn about renderers without a mesh
-            foreach (var renderer in renderersWithoutMesh)
+            foreach (var renderer in renderers)
             {
+                if (renderer.sharedMesh != null)
+                    continue;
                 Debug.LogWarning("A renderer was missing a mesh and was ignored.", renderer);
             }
 
             // Don't combine meshes with blend shapes
-            foreach (var renderer in blendShapeRenderers)
+            foreach (var renderer in renderers)
             {
+                var sharedMesh = renderer.sharedMesh;
+                if (!(sharedMesh != null && sharedMesh.blendShapeCount > 0))
+                    continue;
+
                 newRenderers.Add(new RendererInfo
                 {
                     name = renderer.name,
                     isStatic = false,
                     isNewMesh = false,
                     transform = renderer.transform,
-                    mesh = renderer.sharedMesh,
+                    mesh = sharedMesh,
                     materials = renderer.sharedMaterials,
                     rootBone = renderer.rootBone,
                     bones = renderer.bones
@@ -463,7 +463,7 @@ namespace UnityMeshSimplifier
                 var combinedMesh = MeshCombiner.CombineMeshes(transform, combineRenderers, out combinedMaterials, out combinedBones);
                 combinedMesh.name = string.Format("{0}_skinned{1:00}", transform.name, levelIndex);
 
-                var rootBone = FindBestRootBone(transform, combineRenderers);
+                var rootBone = FindBestRootBone(transform, combineRenderers.AsReadOnlySpan());
                 string rendererName = string.Format("{0}_combined_skinned", transform.name);
                 newRenderers.Add(new RendererInfo
                 {
@@ -566,7 +566,7 @@ namespace UnityMeshSimplifier
         }
 
         // ReSharper disable Unity.PerformanceAnalysis
-        private static SkinnedMeshRenderer CreateSkinnedLevelRenderer(string name, Transform parentTransform, Transform? originalTransform, Mesh mesh, Material[] materials, Transform rootBone, Transform[] bones, in LODLevel level)
+        private static SkinnedMeshRenderer CreateSkinnedLevelRenderer(string name, Transform parentTransform, Transform? originalTransform, Mesh mesh, Material[] materials, Transform? rootBone, Transform[]? bones, in LODLevel level)
         {
             var levelGameObject = new GameObject(name);
             var levelTransform = levelGameObject.transform;
@@ -588,18 +588,7 @@ namespace UnityMeshSimplifier
             return skinnedMeshRenderer;
         }
 
-#if OPTIMISATION
-        private static Transform? FindBestRootBone(Transform transform, List<SkinnedMeshRenderer> skinnedMeshRenderers)
-        {
-            if (skinnedMeshRenderers.Count == 0)
-                return null;
-
-            Vector3 position = transform.position;
-            Transform? bestBone = null;
-            float bestDistance = float.MaxValue;
-            for (int i = 0; i < skinnedMeshRenderers.Count; i++)
-#else
-        private static Transform? FindBestRootBone(Transform transform, SkinnedMeshRenderer[] skinnedMeshRenderers)
+        private static Transform? FindBestRootBone(Transform transform, System.ReadOnlySpan<SkinnedMeshRenderer> skinnedMeshRenderers)
         {
             if (skinnedMeshRenderers == null || skinnedMeshRenderers.Length == 0)
                 return null;
@@ -608,7 +597,6 @@ namespace UnityMeshSimplifier
             Transform? bestBone = null;
             float bestDistance = float.MaxValue;
             for (int i = 0; i < skinnedMeshRenderers.Length; i++)
-#endif // OPTIMISATION
             {
                 if (skinnedMeshRenderers[i] == null || skinnedMeshRenderers[i].rootBone == null)
                     continue;

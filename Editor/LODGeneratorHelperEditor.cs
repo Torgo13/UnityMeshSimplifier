@@ -408,10 +408,15 @@ namespace UnityMeshSimplifier.Editor
                         DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
                         if (currentEvent == EventType.DragPerform)
                         {
-                            var draggedRenderers = from renderer in dragObjects
-                                                   where renderer as Renderer != null
-                                                   select renderer as Renderer;
-                            using var _0 = UnityEngine.Pool.ListPool<Renderer>.Get(out var gameObjectRenderers);
+                            using var _0 = UnityEngine.Pool.ListPool<Renderer>.Get(out var draggedRenderers);
+                            foreach (var renderer in dragObjects)
+                            {
+                                if (renderer as Renderer != null)
+                                {
+                                    draggedRenderers.Add((Renderer)renderer);
+                                }
+                            }
+                            using var _1 = UnityEngine.Pool.HashSetPool<Renderer>.Get(out var gameObjectRenderers);
                             _ = GetRenderers(dragObjects, true, gameObjectRenderers);
                             AddRenderers(renderersProperty, draggedRenderers, true);
                             AddRenderers(renderersProperty, gameObjectRenderers, true);
@@ -430,7 +435,7 @@ namespace UnityMeshSimplifier.Editor
                     var gameObject = EditorGUIUtility.GetObjectPickerObject() as GameObject;
                     if (gameObject != null)
                     {
-                        using var _0 = UnityEngine.Pool.ListPool<Renderer>.Get(out var gameObjectRenderers);
+                        using var _0 = UnityEngine.Pool.HashSetPool<Renderer>.Get(out var gameObjectRenderers);
                         _ = GetRenderers(gameObject, true, gameObjectRenderers);
                         AddRenderers(renderersProperty, gameObjectRenderers, true);
                     }
@@ -611,8 +616,8 @@ namespace UnityMeshSimplifier.Editor
             }
         }
 
-        private List<Renderer> GetRenderers(GameObject gameObject, bool searchChildren,
-            List<Renderer> rendererList)
+        private HashSet<Renderer> GetRenderers(GameObject gameObject, bool searchChildren,
+            HashSet<Renderer> rendererList)
         {
             using var _0 = UnityEngine.Pool.ListPool<GameObject>.Get(out var gameObjects);
             gameObjects.Add(gameObject);
@@ -620,8 +625,8 @@ namespace UnityMeshSimplifier.Editor
             return GetRenderers(gameObjects, searchChildren, rendererList);
         }
 
-        private List<Renderer> GetRenderers(Object?[] objects, bool searchChildren,
-            List<Renderer> rendererList)
+        private HashSet<Renderer> GetRenderers(Object?[] objects, bool searchChildren,
+            HashSet<Renderer> rendererList)
         {
             using var _0 = UnityEngine.Pool.ListPool<GameObject>.Get(out var gameObjects);
             if (gameObjects.Capacity < objects.Length)
@@ -638,8 +643,8 @@ namespace UnityMeshSimplifier.Editor
             return GetRenderers(gameObjects, searchChildren, rendererList);
         }
 
-        private List<Renderer> GetRenderers(List<GameObject> gameObjects, bool searchChildren,
-            List<Renderer> rendererList)
+        private HashSet<Renderer> GetRenderers(List<GameObject> gameObjects, bool searchChildren,
+            HashSet<Renderer> rendererList)
         {
             // Filter out game objects that aren't children of the generator
             var ourTransform = lodGeneratorHelper.transform;
@@ -697,10 +702,7 @@ namespace UnityMeshSimplifier.Editor
                     gameObject.GetComponentsInChildren<Renderer>(renderers);
                     foreach (var renderer in renderers)
                     {
-                        if (!rendererList.Contains(renderer))
-                        {
-                            rendererList.Add(renderer);
-                        }
+                        rendererList.Add(renderer);
                     }
                 }
 

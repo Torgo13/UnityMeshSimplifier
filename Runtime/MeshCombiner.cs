@@ -44,7 +44,7 @@ namespace UnityMeshSimplifier
         /// <param name="renderers">The array of mesh renderers to combine.</param>
         /// <param name="resultMaterials">The resulting materials for the combined mesh.</param>
         /// <returns>The combined mesh.</returns>
-        public static Mesh CombineMeshes(Transform rootTransform, List<MeshRenderer> renderers, out Material[] resultMaterials)
+        public static Mesh CombineMeshes(Transform rootTransform, System.ReadOnlySpan<MeshRenderer> renderers, out Material[] resultMaterials)
         {
 #if OPTIMISATION_NULL
 #else
@@ -54,7 +54,7 @@ namespace UnityMeshSimplifier
                 throw new System.ArgumentNullException(nameof(renderers));
 #endif // OPTIMISATION_NULL
 
-            var renderersLength = renderers.Count;
+            var renderersLength = renderers.Length;
             var meshes = new Mesh[renderersLength];
             var transforms = new Unity.Collections.NativeArray<Matrix4x4>(renderersLength,
                 Unity.Collections.Allocator.Temp,
@@ -81,7 +81,9 @@ namespace UnityMeshSimplifier
                 materials[i] = renderer.sharedMaterials;
             }
 
-            return CombineMeshes(meshes, transforms, materials, out resultMaterials);
+            var combinedMesh =  CombineMeshes(meshes, transforms, materials, out resultMaterials);
+            transforms.Dispose();
+            return combinedMesh;
         }
 
         /// <summary>
@@ -236,7 +238,7 @@ namespace UnityMeshSimplifier
             }
 
             using var _0 = UnityEngine.Pool.ListPool<Vector3>.Get(out var combinedVertices);
-            using var _1 = UnityEngine.Pool.ListPool<int[]>.Get(out var combinedIndices);
+            var combinedIndices = UnityEngine.Pool.ListPool<int[]>.Get();
             if (combinedVertices.Capacity < totalVertexCount)
                 combinedVertices.Capacity = totalVertexCount;
             if (combinedIndices.Capacity < totalSubMeshCount)
@@ -245,15 +247,21 @@ namespace UnityMeshSimplifier
             List<Vector4>? combinedTangents = null;
             List<Color>? combinedColors = null;
             List<BoneWeight>? combinedBoneWeights = null;
-            var combinedUVs = new List<Vector4>[MeshUtils.UVChannelCount];
+            var combinedUVs = new List<Vector4>?[MeshUtils.UVChannelCount];
 
-            using var _2 = UnityEngine.Pool.ListPool<Matrix4x4>.Get(out var usedBindposes);
-            using var _3 = UnityEngine.Pool.ListPool<Transform>.Get(out var usedBones);
-            using var _4 = UnityEngine.Pool.ListPool<Material>.Get(out var usedMaterials);
-            using var _5 = UnityEngine.Pool.DictionaryPool<Material, int>.Get(out var materialMap);
+            var usedBindposes = UnityEngine.Pool.ListPool<Matrix4x4>.Get();
+            var usedBones = UnityEngine.Pool.ListPool<Transform>.Get();
+            var usedMaterials = UnityEngine.Pool.ListPool<Material>.Get();
+            var materialMap = UnityEngine.Pool.DictionaryPool<Material, int>.Get();
             if (usedMaterials.Capacity < totalSubMeshCount)
                 usedMaterials.Capacity = totalSubMeshCount;
             _ = materialMap.EnsureCapacity(totalSubMeshCount);
+            var meshVertices = UnityEngine.Pool.ListPool<Vector3>.Get();
+            var meshNormals = UnityEngine.Pool.ListPool<Vector3>.Get();
+            var meshTangents = UnityEngine.Pool.ListPool<Vector4>.Get();
+            var meshColors = UnityEngine.Pool.ListPool<Color>.Get();
+            var meshBoneWeights = UnityEngine.Pool.ListPool<BoneWeight>.Get();
+            var subMeshIndices = UnityEngine.Pool.ListPool<int>.Get();
 
             int currentVertexCount = 0;
             for (int meshIndex = 0; meshIndex < meshes.Length; meshIndex++)
@@ -265,19 +273,25 @@ namespace UnityMeshSimplifier
 
                 int subMeshCount = mesh.subMeshCount;
                 int meshVertexCount = mesh.vertexCount;
-                var meshVertices = mesh.vertices;
-                var meshNormals = mesh.normals;
-                var meshTangents = mesh.tangents;
+                meshVertices.Clear();
+                meshNormals.Clear();
+                meshTangents.Clear();
+                meshColors.Clear();
+                meshBoneWeights.Clear();
+                mesh.GetVertices(meshVertices);
+                mesh.GetNormals(meshNormals);
+                mesh.GetTangents(meshTangents);
                 var meshUVs = MeshUtils.GetMeshUVs(mesh);
-                var meshColors = mesh.colors;
-                var meshBoneWeights = mesh.boneWeights;
-                var meshBindposes = mesh.bindposes;
+                mesh.GetColors(meshColors);
+                mesh.GetBoneWeights(meshBoneWeights);
+                var meshBindposes = mesh.GetBindposes();
 
                 // Transform vertices with bones to keep only one bindpose
-                if (meshBones != null && meshBoneWeights != null && meshBoneWeights.Length > 0 && meshBindposes != null && meshBindposes.Length > 0 && meshBones.Length == meshBindposes.Length)
+                if (meshBones != null && meshBoneWeights.Count > 0 && meshBindposes.Length > 0 && meshBones.Length == meshBindposes.Length)
                 {
                     var boneIndices = new Unity.Collections.NativeArray<int>(meshBones.Length,
-                        Unity.Collections.Allocator.Temp);
+                        Unity.Collections.Allocator.Temp,
+                        Unity.Collections.NativeArrayOptions.UninitializedMemory);
                     for (int i = 0; i < meshBones.Length; i++)
                     {
                         int usedBoneIndex = usedBones.IndexOf(meshBones[i]);
@@ -291,35 +305,36 @@ namespace UnityMeshSimplifier
                     }
 
                     // Then we remap the bones
-                    RemapBones(meshBoneWeights, boneIndices);
+                    RemapBones(meshBoneWeights.AsSpan(), boneIndices);
                     boneIndices.Dispose();
                 }
 
                 // Transforms the vertices, normals and tangents using the mesh transform
-                TransformVertices(meshVertices, ref meshTransform);
-                TransformNormals(meshNormals, ref meshTransform);
-                TransformTangents(meshTangents, ref meshTransform);
+                TransformVertices(meshVertices.AsSpan(), ref meshTransform);
+                TransformNormals(meshNormals.AsSpan(), ref meshTransform);
+                TransformTangents(meshTangents.AsSpan(), ref meshTransform);
 
                 // Copy vertex positions & attributes
-                CopyVertexPositions(combinedVertices, meshVertices);
-                CopyVertexAttributes(ref combinedNormals, meshNormals, currentVertexCount, meshVertexCount, totalVertexCount, new Vector3(1f, 0f, 0f));
-                CopyVertexAttributes(ref combinedTangents, meshTangents, currentVertexCount, meshVertexCount, totalVertexCount, new Vector4(0f, 0f, 1f, 1f));
-                CopyVertexAttributes(ref combinedColors, meshColors, currentVertexCount, meshVertexCount, totalVertexCount, new Color(1f, 1f, 1f, 1f));
-                CopyVertexAttributes(ref combinedBoneWeights, meshBoneWeights, currentVertexCount, meshVertexCount, totalVertexCount, new BoneWeight());
+                combinedVertices.AddRange(meshVertices);
+                CopyVertexAttributes(ref combinedNormals, meshNormals.AsReadOnlySpan(), currentVertexCount, meshVertexCount, totalVertexCount, new Vector3(1f, 0f, 0f));
+                CopyVertexAttributes(ref combinedTangents, meshTangents.AsReadOnlySpan(), currentVertexCount, meshVertexCount, totalVertexCount, new Vector4(0f, 0f, 1f, 1f));
+                CopyVertexAttributes(ref combinedColors, meshColors.AsReadOnlySpan(), currentVertexCount, meshVertexCount, totalVertexCount, new Color(1f, 1f, 1f, 1f));
+                CopyVertexAttributes(ref combinedBoneWeights, meshBoneWeights.AsReadOnlySpan(), currentVertexCount, meshVertexCount, totalVertexCount, new BoneWeight());
 
                 for (int channel = 0; channel < meshUVs.Length; channel++)
                 {
-                    CopyVertexAttributes(ref combinedUVs[channel], meshUVs[channel], currentVertexCount, meshVertexCount, totalVertexCount, new Vector4(0f, 0f, 0f, 0f));
+                    CopyVertexAttributes(ref combinedUVs[channel], meshUVs[channel].AsReadOnlySpan(), currentVertexCount, meshVertexCount, totalVertexCount, new Vector4(0f, 0f, 0f, 0f));
                 }
 
                 for (int subMeshIndex = 0; subMeshIndex < subMeshCount; subMeshIndex++)
                 {
                     var subMeshMaterial = meshMaterials[subMeshIndex];
-                    var subMeshIndices = mesh.GetTriangles(subMeshIndex, true);
+                    subMeshIndices.Clear();
+                    mesh.GetTriangles(subMeshIndices, subMeshIndex, true);
 
                     if (currentVertexCount > 0)
                     {
-                        for (int index = 0; index < subMeshIndices.Length; index++)
+                        for (int index = 0; index < subMeshIndices.Count; index++)
                         {
                             subMeshIndices[index] += currentVertexCount;
                         }
@@ -328,14 +343,14 @@ namespace UnityMeshSimplifier
                     int existingSubMeshIndex;
                     if (materialMap.TryGetValue(subMeshMaterial, out existingSubMeshIndex))
                     {
-                        combinedIndices[existingSubMeshIndex] = MergeArrays(combinedIndices[existingSubMeshIndex], subMeshIndices);
+                        combinedIndices[existingSubMeshIndex] = MergeArrays(combinedIndices[existingSubMeshIndex], subMeshIndices.AsReadOnlySpan());
                     }
                     else
                     {
                         int materialIndex = combinedIndices.Count;
                         materialMap.Add(subMeshMaterial, materialIndex);
                         usedMaterials.Add(subMeshMaterial);
-                        combinedIndices.Add(subMeshIndices);
+                        combinedIndices.Add(subMeshIndices.ToArray());
                     }
                 }
 
@@ -358,7 +373,22 @@ namespace UnityMeshSimplifier
             }
             resultMaterials = usedMaterials.ToArray();
             resultBones = (usedBones.Count > 0 ? usedBones.ToArray() : null);
-            return MeshUtils.CreateMesh(resultVertices, resultIndices, resultNormals, resultTangents, resultColors, resultBoneWeights, resultUVs, resultBindposes, default);
+
+            UnityEngine.Pool.ListPool<int[]>.Release(combinedIndices);
+            UnityEngine.Pool.ListPool<Matrix4x4>.Release(usedBindposes);
+            UnityEngine.Pool.ListPool<Transform>.Release(usedBones);
+            UnityEngine.Pool.ListPool<Material>.Release(usedMaterials);
+            UnityEngine.Pool.DictionaryPool<Material, int>.Release(materialMap);
+            UnityEngine.Pool.ListPool<Vector3>.Release(meshVertices);
+            UnityEngine.Pool.ListPool<Vector3>.Release(meshNormals);
+            UnityEngine.Pool.ListPool<Vector4>.Release(meshTangents);
+            UnityEngine.Pool.ListPool<Color>.Release(meshColors);
+            UnityEngine.Pool.ListPool<BoneWeight>.Release(meshBoneWeights);
+            UnityEngine.Pool.ListPool<int>.Release(subMeshIndices);
+
+            var combinedMesh = MeshUtils.CreateMesh(resultVertices, resultIndices, resultNormals, resultTangents, resultColors, resultBoneWeights, resultUVs, resultBindposes, default);
+            resultBindposes.Dispose();
+            return combinedMesh;
         }
         #endregion
 
@@ -373,36 +403,6 @@ namespace UnityMeshSimplifier
                 return;
 
             list.AddRange(arr);
-        }
-
-        private static void CopyVertexAttributes<T>([System.Diagnostics.CodeAnalysis.NotNull] ref List<T>? dest, List<T> src, int previousVertexCount, int meshVertexCount, int totalVertexCount, T defaultValue)
-        {
-#if OPTIMISATION_NULL
-            if (src.Count == 0)
-#else
-            if (src == null || !src.Any())
-#endif // OPTIMISATION_NULL
-            {
-                if (dest != null)
-                {
-                    for (int i = 0; i < meshVertexCount; i++)
-                    {
-                        dest.Add(defaultValue);
-                    }
-                }
-                return;
-            }
-
-            if (dest == null)
-            {
-                dest = new List<T>(totalVertexCount);
-                for (int i = 0; i < previousVertexCount; i++)
-                {
-                    dest.Add(defaultValue);
-                }
-            }
-
-            dest.AddRange(src);
         }
 
         private static void CopyVertexAttributes<T>(ref List<T>? dest, System.ReadOnlySpan<T> src, int previousVertexCount, int meshVertexCount, int totalVertexCount, T defaultValue)
@@ -437,15 +437,15 @@ namespace UnityMeshSimplifier
             }
         }
 
-        private static T[] MergeArrays<T>(T[] arr1, T[] arr2)
+        private static T[] MergeArrays<T>(T[] arr1, System.ReadOnlySpan<T> arr2)
         {
             var newArr = new T[arr1.Length + arr2.Length];
             System.Array.Copy(arr1, 0, newArr, 0, arr1.Length);
-            System.Array.Copy(arr2, 0, newArr, arr1.Length, arr2.Length);
+            arr2.CopyTo(System.MemoryExtensions.AsSpan(newArr, arr1.Length));
             return newArr;
         }
 
-        private static void TransformVertices(Vector3[] vertices, ref Matrix4x4 transform)
+        private static void TransformVertices(System.Span<Vector3> vertices, ref Matrix4x4 transform)
         {
             for (int i = 0; i < vertices.Length; i++)
             {
@@ -453,10 +453,13 @@ namespace UnityMeshSimplifier
             }
         }
 
-        private static void TransformNormals(Vector3[]? normals, ref Matrix4x4 transform)
+        private static void TransformNormals(System.Span<Vector3> normals, ref Matrix4x4 transform)
         {
+#if OPTIMISATION_NULL
+#else
             if (normals == null)
                 return;
+#endif // OPTIMISATION_NULL
 
             for (int i = 0; i < normals.Length; i++)
             {
@@ -464,39 +467,50 @@ namespace UnityMeshSimplifier
             }
         }
 
-        private static void TransformTangents(Vector4[]? tangents, ref Matrix4x4 transform)
+        private static void TransformTangents(System.Span<Vector4> tangents, ref Matrix4x4 transform)
         {
+#if OPTIMISATION_NULL
+#else
             if (tangents == null)
                 return;
+#endif // OPTIMISATION_NULL
 
-            Vector3 tengentDir;
             for (int i = 0; i < tangents.Length; i++)
             {
-                tengentDir = transform.MultiplyVector(new Vector3(tangents[i].x, tangents[i].y, tangents[i].z));
-                tangents[i] = new Vector4(tengentDir.x, tengentDir.y, tengentDir.z, tangents[i].w);
+                Vector3 tangent = (Vector3)tangents[i];
+#if UNITY_6000_3_OR_NEWER
+                Vector4 tangentDir = (Vector4)transform.MultiplyVector(in tangent);
+#else
+                Vector4 tangentDir = (Vector4)transform.MultiplyVector(tangent);
+#endif // UNITY_6000_3_OR_NEWER
+                tangentDir.w = tangents[i].w;
+                tangents[i] = tangentDir;
             }
         }
 
-        private static void RemapBones(BoneWeight[] boneWeights, System.ReadOnlySpan<int> boneIndices)
+        private static void RemapBones(System.Span<BoneWeight> boneWeights, Unity.Collections.NativeArray<int> boneIndices)
         {
             for (int i = 0; i < boneWeights.Length; i++)
             {
+                BoneWeight boneWeight = boneWeights[i];
                 if (boneWeights[i].weight0 > 0)
                 {
-                    boneWeights[i].boneIndex0 = boneIndices[boneWeights[i].boneIndex0];
+                    boneWeight.boneIndex0 = boneIndices[boneWeights[i].boneIndex0];
                 }
                 if (boneWeights[i].weight1 > 0)
                 {
-                    boneWeights[i].boneIndex1 = boneIndices[boneWeights[i].boneIndex1];
+                    boneWeight.boneIndex1 = boneIndices[boneWeights[i].boneIndex1];
                 }
                 if (boneWeights[i].weight2 > 0)
                 {
-                    boneWeights[i].boneIndex2 = boneIndices[boneWeights[i].boneIndex2];
+                    boneWeight.boneIndex2 = boneIndices[boneWeights[i].boneIndex2];
                 }
                 if (boneWeights[i].weight3 > 0)
                 {
-                    boneWeights[i].boneIndex3 = boneIndices[boneWeights[i].boneIndex3];
+                    boneWeight.boneIndex3 = boneIndices[boneWeights[i].boneIndex3];
                 }
+
+                boneWeights[i] = boneWeight;
             }
         }
 
