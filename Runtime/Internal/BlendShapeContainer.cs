@@ -77,11 +77,11 @@ namespace UnityMeshSimplifier.Internal
             }
         }
 
-        public void Resize(int length, bool trimExcess = false)
+        public void Resize(int length, bool trimExess = false)
         {
             for (int i = 0; i < frames.Length; i++)
             {
-                frames[i].Resize(length, trimExcess);
+                frames[i].Resize(length, trimExess);
             }
         }
 

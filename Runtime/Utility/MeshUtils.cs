@@ -120,7 +120,7 @@ namespace UnityMeshSimplifier
             int subMeshCount = indices.Length;
 
             IndexFormat indexFormat;
-            using var indexMinMax = MeshUtils.GetSubMeshIndexMinMax(indices, out indexFormat);
+            var indexMinMax = MeshUtils.GetSubMeshIndexMinMax(indices, out indexFormat);
             newMesh.indexFormat = indexFormat;
 
             if (bindposes != null && bindposes.Length > 0)
@@ -223,7 +223,7 @@ namespace UnityMeshSimplifier
             int subMeshCount = indices.Length;
 
             IndexFormat indexFormat;
-            using var indexMinMax = MeshUtils.GetSubMeshIndexMinMax(indices, out indexFormat);
+            var indexMinMax = MeshUtils.GetSubMeshIndexMinMax(indices, out indexFormat);
             newMesh.indexFormat = indexFormat;
 
             if (bindposes.IsCreated && bindposes.Length > 0)
@@ -326,7 +326,7 @@ namespace UnityMeshSimplifier
             int subMeshCount = indices.Length;
 
             IndexFormat indexFormat;
-            using var indexMinMax = MeshUtils.GetSubMeshIndexMinMax(indices, out indexFormat);
+            var indexMinMax = MeshUtils.GetSubMeshIndexMinMax(indices, out indexFormat);
             newMesh.indexFormat = indexFormat;
 
             if (bindposes != null && bindposes.Length > 0)
@@ -418,10 +418,8 @@ namespace UnityMeshSimplifier
         /// Returns the blend shapes of a mesh.
         /// </summary>
         /// <param name="mesh">The mesh.</param>
-        /// <param name="allocator"></param>
         /// <returns>The mesh blend shapes.</returns>
-        public static Unity.Collections.NativeArray<BlendShape> GetMeshBlendShapes(Mesh mesh,
-            Unity.Collections.Allocator allocator = Unity.Collections.Allocator.Temp)
+        public static BlendShape[] GetMeshBlendShapes(Mesh mesh)
         {
 #if OPTIMISATION_NULL
 #else
@@ -433,13 +431,12 @@ namespace UnityMeshSimplifier
             int blendShapeCount = mesh.blendShapeCount;
             if (blendShapeCount == 0)
 #if OPTIMISATION_NULL
-                return default;
+                return Array.Empty<BlendShape>();
 #else
                 return null;
 #endif // OPTIMISATION_NULL
 
-            var blendShapes = new Unity.Collections.NativeArray<BlendShape>(blendShapeCount, allocator,
-                Unity.Collections.NativeArrayOptions.UninitializedMemory);
+            var blendShapes = new BlendShape[blendShapeCount];
 
             for (int blendShapeIndex = 0; blendShapeIndex < blendShapeCount; blendShapeIndex++)
             {
@@ -538,6 +535,7 @@ namespace UnityMeshSimplifier
                 throw new ArgumentOutOfRangeException(nameof(channel));
 #endif // OPTIMISATION_NULL
 
+            uvList.Clear();
             mesh.GetUVs(channel, uvList);
             return uvList;
         }
@@ -562,6 +560,7 @@ namespace UnityMeshSimplifier
                 throw new ArgumentOutOfRangeException(nameof(channel));
 #endif // OPTIMISATION_NULL
 
+            uvList.Clear();
             mesh.GetUVs(channel, uvList);
             return uvList;
         }
@@ -579,17 +578,17 @@ namespace UnityMeshSimplifier
 #if OPTIMISATION_NULL
             if (channel < 0 || channel >= UVChannelCount)
                 throw new ArgumentOutOfRangeException(nameof(channel));
-
-            if (uvList == null)
-                uvList = new List<Vector4>(mesh.vertexCount);
-            else
-                uvList.Clear();
 #else
             if (mesh == null)
                 throw new ArgumentNullException(nameof(mesh));
             else if (channel < 0 || channel >= UVChannelCount)
                 throw new ArgumentOutOfRangeException(nameof(channel));
 #endif // OPTIMISATION_NULL
+
+            if (uvList == null)
+                uvList = new List<Vector4>(mesh.vertexCount);
+            else
+                uvList.Clear();
 
             mesh.GetUVs(channel, uvList);
             return uvList;
@@ -600,6 +599,10 @@ namespace UnityMeshSimplifier
         /// </summary>
         /// <param name="uvs">The UV set.</param>
         /// <returns>The number of used UV components.</returns>
+        public static int GetUsedUVComponents(List<Vector4> uvs)
+            => GetUsedUVComponents(uvs.AsReadOnlySpan());
+
+        /// <inheritdoc cref="GetUsedUVComponents(List{Vector4})"/>
         public static int GetUsedUVComponents(ReadOnlySpan<Vector4> uvs)
         {
 #if OPTIMISATION_NULL
@@ -637,10 +640,12 @@ namespace UnityMeshSimplifier
         /// Converts a list of 4D UVs into 2D.
         /// </summary>
         /// <param name="uvs">The list of UVs.</param>
-        /// <param name="allocator"></param>
         /// <returns>The array of 2D UVs.</returns>
-        public static Unity.Collections.NativeArray<Vector2> ConvertUVsTo2D(ReadOnlySpan<Vector4> uvs,
-            Unity.Collections.Allocator allocator = Unity.Collections.Allocator.Temp)
+        public static Vector2[] ConvertUVsTo2D(List<Vector4> uvs)
+            => ConvertUVsTo2D(uvs.AsReadOnlySpan());
+
+        /// <inheritdoc cref="ConvertUVsTo2D(List{Vector4})"/>
+        public static Vector2[] ConvertUVsTo2D(ReadOnlySpan<Vector4> uvs)
         {
 #if OPTIMISATION_NULL
 #else
@@ -648,8 +653,7 @@ namespace UnityMeshSimplifier
                 return null;
 #endif // OPTIMISATION_NULL
 
-            var uv2D = new Unity.Collections.NativeArray<Vector2>(uvs.Length, allocator,
-                Unity.Collections.NativeArrayOptions.UninitializedMemory);
+            var uv2D = new Vector2[uvs.Length];
             for (int i = 0; i < uv2D.Length; i++)
             {
                 uv2D[i] = (Vector2)uvs[i];
@@ -661,10 +665,14 @@ namespace UnityMeshSimplifier
         /// Converts a list of 4D UVs into 3D.
         /// </summary>
         /// <param name="uvs">The list of UVs.</param>
-        /// <param name="allocator"></param>
         /// <returns>The array of 3D UVs.</returns>
-        public static Unity.Collections.NativeArray<Vector3> ConvertUVsTo3D(ReadOnlySpan<Vector4> uvs,
-            Unity.Collections.Allocator allocator = Unity.Collections.Allocator.Temp)
+        public static Vector3[] ConvertUVsTo3D(List<Vector4> uvs)
+        {
+            return ConvertUVsTo3D(uvs.AsReadOnlySpan());
+        }
+
+        /// <inheritdoc cref="ConvertUVsTo3D(List{Vector4})"/>
+        public static Vector3[] ConvertUVsTo3D(ReadOnlySpan<Vector4> uvs)
         {
 #if OPTIMISATION_NULL
 #else
@@ -672,8 +680,7 @@ namespace UnityMeshSimplifier
                 return null;
 #endif // OPTIMISATION_NULL
 
-            var uv3D = new Unity.Collections.NativeArray<Vector3>(uvs.Length, allocator,
-                Unity.Collections.NativeArrayOptions.UninitializedMemory);
+            var uv3D = new Vector3[uvs.Length];
             for (int i = 0; i < uv3D.Length; i++)
             {
                 uv3D[i] = (Vector3)uvs[i];
@@ -687,14 +694,13 @@ namespace UnityMeshSimplifier
         /// <param name="indices">The indices for the submeshes.</param>
         /// <param name="indexFormat">The output index format.</param>
         /// <returns>The minimum and maximum indices for each submesh.</returns>
-        public static Unity.Collections.NativeArray<Vector2Int> GetSubMeshIndexMinMax(int[][] indices, out IndexFormat indexFormat)
+        public static Vector2Int[] GetSubMeshIndexMinMax(int[][] indices, out IndexFormat indexFormat)
         {
             if (indices == null)
                 throw new ArgumentNullException(nameof(indices));
 
-            var result = new Unity.Collections.NativeArray<Vector2Int>(indices.Length,
-                Unity.Collections.Allocator.Temp,
-                Unity.Collections.NativeArrayOptions.UninitializedMemory);
+            var result = new Vector2Int[indices.Length];
+
             indexFormat = IndexFormat.UInt16;
             for (int subMeshIndex = 0; subMeshIndex < indices.Length; subMeshIndex++)
             {

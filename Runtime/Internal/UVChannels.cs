@@ -95,11 +95,11 @@ namespace UnityMeshSimplifier.Internal
         /// </summary>
         /// <param name="capacity">The new capacity.</param>
         /// <param name="trimExcess">If excess memory should be trimmed.</param>
-        public void Resize(int capacity, bool trimExcess = false)
+        public void Resize(int capacity, bool trimExess = false)
         {
             for (int i = 0; i < UVChannelCount; i++)
             {
-                channels[i]?.Resize(capacity, trimExcess);
+                channels[i]?.Resize(capacity, trimExess);
             }
         }
     }
