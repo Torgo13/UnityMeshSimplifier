@@ -40,7 +40,7 @@ namespace UnityMeshSimplifier.Internal
     {
 #if OPTIMISATION
         private readonly ResizableArray<TVec>?[] channels;
-        private readonly TVec[]?[] channelsData;
+        private TVec[]?[]? channelsData { get => null; set { /**/ } }
 #else
         private static readonly int UVChannelCount = MeshUtils.UVChannelCount;
 
@@ -48,6 +48,9 @@ namespace UnityMeshSimplifier.Internal
         private TVec[][] channelsData = null;
 #endif // OPTIMISATION
 
+#if OPTIMISATION
+        public ResizableArray<TVec>?[] Data => channels;
+#else
         public TVec[]?[] Data
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -60,6 +63,7 @@ namespace UnityMeshSimplifier.Internal
                 return channelsData;
             }
         }
+#endif // OPTIMISATION
 
         /// <summary>
         /// Gets or sets a specific channel by index.
@@ -75,8 +79,11 @@ namespace UnityMeshSimplifier.Internal
 
         public UVChannels()
         {
-            channels = new ResizableArray<TVec>?[UVChannelCount];
+            channels = new ResizableArray<TVec>[UVChannelCount];
+#if OPTIMISATION
+#else
             channelsData = new TVec[UVChannelCount][];
+#endif // OPTIMISATION
         }
 
 #if OPTIMISATION_IDISPOSABLE
@@ -84,8 +91,7 @@ namespace UnityMeshSimplifier.Internal
         {
             foreach (var channel in channels)
             {
-                if (channel.HasValue)
-                    channel.Value.Dispose();
+                channel.Dispose();
             }
         }
 #endif // OPTIMISATION_IDISPOSABLE
@@ -94,7 +100,7 @@ namespace UnityMeshSimplifier.Internal
         /// Resizes all channels at once.
         /// </summary>
         /// <param name="capacity">The new capacity.</param>
-        /// <param name="trimExcess">If excess memory should be trimmed.</param>
+        /// <param name="trimExess">If excess memory should be trimmed.</param>
         public void Resize(int capacity, bool trimExess = false)
         {
             for (int i = 0; i < UVChannelCount; i++)

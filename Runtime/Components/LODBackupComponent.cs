@@ -32,9 +32,9 @@ namespace UnityMeshSimplifier
     internal class LODBackupComponent : MonoBehaviour
     {
         [SerializeField]
-        private Renderer[]? originalRenderers = null;
+        private Renderer[] originalRenderers = System.Array.Empty<Renderer>();
 
-        public Renderer[]? OriginalRenderers
+        public Renderer[] OriginalRenderers
         {
             get { return originalRenderers; }
             set { originalRenderers = value; }

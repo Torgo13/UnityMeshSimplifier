@@ -67,7 +67,7 @@ namespace UnityMeshSimplifier
             public Mesh mesh;
             public Material[] materials;
             public Transform? rootBone;
-            public Transform[]? bones;
+            public Transform[] bones;
         }
         #endregion
 
@@ -145,27 +145,27 @@ namespace UnityMeshSimplifier
             var lodParent = lodParentGameObject.transform;
             ParentAndResetTransform(lodParent, transform);
 
-            var worldToLocalMatrix = transform.worldToLocalMatrix;
-            var name = transform.name;
-            var position = transform.position;
-
             var lodGroup = gameObject.AddComponent<LODGroup>();
 
-            Renderer[]? allRenderers = null;
+            Renderer[] allRenderers = System.Array.Empty<Renderer>();
             if (autoCollectRenderers)
             {
                 // Collect all enabled renderers under the game object
                 allRenderers = GetChildRenderersForLOD(gameObject);
             }
 
+            var worldToLocalMatrix = transform.worldToLocalMatrix;
+            var name = transform.name;
+            var position = transform.position;
+
             var staticRenderersList = new List<RendererInfo>();
             var skinnedRenderersList = new List<RendererInfo>();
-            var meshRenderers = new List<MeshRenderer>();
-            var skinnedMeshRenderers = new List<SkinnedMeshRenderer>();
-            var combineRenderers = new List<SkinnedMeshRenderer>();
+            var meshRenderersList = new List<MeshRenderer>();
+            var skinnedMeshRenderersList = new List<SkinnedMeshRenderer>();
+            var combineRenderersList = new List<SkinnedMeshRenderer>();
 
-            var renderersToDisable = new HashSet<Renderer>();
-            renderersToDisable.EnsureCapacity(allRenderers?.Length ?? 10);
+            var renderersToDisableHashSet = new HashSet<Renderer>();
+            renderersToDisableHashSet.EnsureCapacity(Mathf.Max(allRenderers.Length, 10));
             var lods = new LOD[levels.Length];
             for (int levelIndex = 0; levelIndex < levels.Length; levelIndex++)
             {
@@ -174,13 +174,13 @@ namespace UnityMeshSimplifier
                 var levelTransform = levelGameObject.transform;
                 ParentAndResetTransform(levelTransform, lodParent);
 
-                Renderer[]? originalLevelRenderers = allRenderers ?? level.Renderers;
+                Renderer[] originalLevelRenderers = allRenderers.Length > 0 ? allRenderers : level.Renderers;
                 Renderer[] levelRenderers;
 
                 if (originalLevelRenderers != null && originalLevelRenderers.Length > 0)
                 {
-                    meshRenderers.Clear();
-                    skinnedMeshRenderers.Clear();
+                    meshRenderersList.Clear();
+                    skinnedMeshRenderersList.Clear();
                     foreach (var renderer in originalLevelRenderers)
                     {
                         if (renderer as MeshRenderer != null
@@ -188,7 +188,7 @@ namespace UnityMeshSimplifier
                             && renderer.TryGetComponent(out MeshFilter meshFilter)
                             && meshFilter.sharedMesh != null)
                         {
-                            meshRenderers.Add((MeshRenderer)renderer);
+                            meshRenderersList.Add((MeshRenderer)renderer);
                         }
                         else if (renderer as SkinnedMeshRenderer != null
                             && renderer.enabled)
@@ -196,24 +196,26 @@ namespace UnityMeshSimplifier
                             var skinnedMeshRenderer = (SkinnedMeshRenderer)renderer;
                             if (skinnedMeshRenderer.sharedMesh != null)
                             {
-                                skinnedMeshRenderers.Add(skinnedMeshRenderer);
+                                skinnedMeshRenderersList.Add(skinnedMeshRenderer);
                             }
                         }
 
-                        renderersToDisable.Add(renderer);
+                        renderersToDisableHashSet.Add(renderer);
                     }
 
+                    var meshRenderers = meshRenderersList.AsReadOnlySpan();
+                    var skinnedMeshRenderers = skinnedMeshRenderersList.AsReadOnlySpan();
                     System.Span<RendererInfo> staticRenderers;
                     System.Span<RendererInfo> skinnedRenderers;
                     if (level.CombineMeshes)
                     {
-                        staticRenderers = CombineStaticMeshes(in worldToLocalMatrix, name, levelIndex, meshRenderers.AsReadOnlySpan(), staticRenderersList).AsSpan();
-                        skinnedRenderers = CombineSkinnedMeshes(position, name, levelIndex, skinnedMeshRenderers.AsReadOnlySpan(), combineRenderers, skinnedRenderersList).AsSpan();
+                        staticRenderers = CombineStaticMeshes(in worldToLocalMatrix, name, levelIndex, meshRenderers, staticRenderersList).AsSpan();
+                        skinnedRenderers = CombineSkinnedMeshes(position, name, levelIndex, skinnedMeshRenderers, combineRenderersList, skinnedRenderersList).AsSpan();
                     }
                     else
                     {
-                        staticRenderers = GetStaticRenderers(meshRenderers.AsReadOnlySpan(), staticRenderersList).AsSpan();
-                        skinnedRenderers = GetSkinnedRenderers(skinnedMeshRenderers.AsReadOnlySpan(), skinnedRenderersList).AsSpan();
+                        staticRenderers = GetStaticRenderers(meshRenderers, staticRenderersList).AsSpan();
+                        skinnedRenderers = GetSkinnedRenderers(skinnedMeshRenderers, skinnedRenderersList).AsSpan();
                     }
 
                     levelRenderers = new Renderer[staticRenderers.Length + skinnedRenderers.Length];
@@ -252,9 +254,9 @@ namespace UnityMeshSimplifier
                 lods[levelIndex] = new LOD(level.ScreenRelativeTransitionHeight, levelRenderers);
             }
 
-            var disable = renderersToDisable.ToArray();
-            CreateBackup(gameObject, disable);
-            foreach (var renderer in disable)
+            var renderersToDisable = renderersToDisableHashSet.ToArray();
+            CreateBackup(gameObject, renderersToDisable);
+            foreach (var renderer in renderersToDisable)
             {
                 renderer.enabled = false;
             }
@@ -407,7 +409,7 @@ namespace UnityMeshSimplifier
                 mesh = combinedMesh,
                 materials = combinedMaterials,
                 rootBone = null,
-                bones = null
+                bones = System.Array.Empty<Transform>()
             });
 
             return newRenderers;
@@ -415,7 +417,7 @@ namespace UnityMeshSimplifier
 
         // ReSharper disable Unity.PerformanceAnalysis
         private static List<RendererInfo> CombineSkinnedMeshes(Vector3 position, string name, int levelIndex, System.ReadOnlySpan<SkinnedMeshRenderer> renderers,
-            List<SkinnedMeshRenderer> combineRenderers, List<RendererInfo> newRenderers)
+            List<SkinnedMeshRenderer> combineRenderersList, List<RendererInfo> newRenderers)
         {
 #if OPTIMISATION_NULL
             if (renderers.Length == 0)
@@ -430,7 +432,7 @@ namespace UnityMeshSimplifier
 
             // TODO: Support to merge sub-meshes and atlas textures
 
-            combineRenderers.Clear();
+            combineRenderersList.Clear();
 
             // Don't combine meshes with blend shapes
             foreach (var renderer in renderers)
@@ -446,7 +448,7 @@ namespace UnityMeshSimplifier
 
                 if (sharedMesh.blendShapeCount == 0)
                 {
-                    combineRenderers.Add(renderer);
+                    combineRenderersList.Add(renderer);
                     continue;
                 }
 
@@ -463,12 +465,13 @@ namespace UnityMeshSimplifier
                 });
             }
 
-            if (combineRenderers.Count > 0)
+            var combineRenderers = combineRenderersList.AsReadOnlySpan();
+            if (combineRenderers.Length > 0)
             {
-                var combinedMesh = MeshCombiner.CombineMeshes(rootTransform: null, combineRenderers.AsReadOnlySpan(), out var combinedMaterials, out var combinedBones);
+                var combinedMesh = MeshCombiner.CombineMeshes(rootTransform: null, combineRenderers, out var combinedMaterials, out var combinedBones);
                 combinedMesh.name = string.Format("{0}_skinned{1:00}", name, levelIndex);
 
-                var rootBone = FindBestRootBone(position, combineRenderers.AsReadOnlySpan());
+                var rootBone = FindBestRootBone(position, combineRenderers);
                 string rendererName = string.Format("{0}_combined_skinned", name);
                 newRenderers.Add(new RendererInfo
                 {
@@ -643,7 +646,8 @@ namespace UnityMeshSimplifier
         private static void CollectChildRenderersForLOD(Transform transform, List<Renderer> resultRenderers)
         {
             // Collect the renderers of this transform
-            transform.GetComponents<Renderer>(resultRenderers);
+            var childRenderers = transform.GetComponents<Renderer>();
+            resultRenderers.AddRange(childRenderers);
 
             int childCount = transform.childCount;
             for (int i = 0; i < childCount; i++)
@@ -722,7 +726,10 @@ namespace UnityMeshSimplifier
             foreach (var backupComponent in backupComponents)
             {
                 var originalRenderers = backupComponent.OriginalRenderers;
+#if OPTIMISATION_NULL
+#else
                 if (originalRenderers != null)
+#endif // OPTIMISATION_NULL
                 {
                     foreach (var renderer in originalRenderers)
                     {
@@ -817,9 +824,8 @@ namespace UnityMeshSimplifier
 
         private static void DestroyLODAssets(Transform transform)
         {
-            var renderers = new List<Renderer>();
             var sharedMaterials = new List<Material>();
-            transform.GetComponentsInChildren<Renderer>(true, renderers);
+            var renderers = transform.GetComponentsInChildren<Renderer>(true);
             foreach (var renderer in renderers)
             {
                 var meshRenderer = renderer as MeshRenderer;

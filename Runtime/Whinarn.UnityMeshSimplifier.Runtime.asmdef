@@ -11,5 +11,12 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": []
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "Unity",
+            "expression": "2018.2",
+            "define": "UNITY_8UV_SUPPORT"
+        }
+    ]
 }

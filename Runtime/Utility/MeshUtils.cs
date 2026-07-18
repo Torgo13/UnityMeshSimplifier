@@ -189,7 +189,7 @@ namespace UnityMeshSimplifier
             {
                 var subMeshTriangles = indices[subMeshIndex];
                 var minMax = indexMinMax[subMeshIndex];
-                if (indexFormat == IndexFormat.UInt16 && minMax.y > ushort.MaxValue)
+                if (indexFormat == IndexFormat.UInt16 && minMax.y >= ushort.MaxValue)
                 {
                     int baseVertex = minMax.x;
                     for (int index = 0; index < subMeshTriangles.Length; index++)
@@ -292,7 +292,7 @@ namespace UnityMeshSimplifier
             {
                 var subMeshTriangles = indices[subMeshIndex];
                 var minMax = indexMinMax[subMeshIndex];
-                if (indexFormat == IndexFormat.UInt16 && minMax.y > ushort.MaxValue)
+                if (indexFormat == IndexFormat.UInt16 && minMax.y >= ushort.MaxValue)
                 {
                     int baseVertex = minMax.x;
                     for (int index = 0; index < subMeshTriangles.Length; index++)
@@ -395,7 +395,7 @@ namespace UnityMeshSimplifier
             {
                 var subMeshTriangles = indices[subMeshIndex];
                 var minMax = indexMinMax[subMeshIndex];
-                if (indexFormat == IndexFormat.UInt16 && minMax.y > ushort.MaxValue)
+                if (indexFormat == IndexFormat.UInt16 && minMax.y >= ushort.MaxValue)
                 {
                     int baseVertex = minMax.x;
                     for (int index = 0; index < subMeshTriangles.Length; index++)
@@ -709,7 +709,7 @@ namespace UnityMeshSimplifier
                 result[subMeshIndex] = new Vector2Int(minIndex, maxIndex);
 
                 int indexRange = (maxIndex - minIndex);
-                if (indexRange > ushort.MaxValue)
+                if (indexRange >= ushort.MaxValue)
                 {
                     indexFormat = IndexFormat.UInt32;
                 }

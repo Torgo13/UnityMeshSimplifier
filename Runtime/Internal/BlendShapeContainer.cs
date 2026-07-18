@@ -92,7 +92,12 @@ namespace UnityMeshSimplifier.Internal
             {
                 shapeFrames[i] = frames[i].ToBlendShapeFrame();
             }
+
+#if OPTIMISATION_IDISPOSABLE
+            return new BlendShape(shapeName.ToString(), shapeFrames);
+#else
             return new BlendShape(shapeName, shapeFrames);
+#endif // OPTIMISATION_IDISPOSABLE
         }
 
 #if OPTIMISATION_IDISPOSABLE

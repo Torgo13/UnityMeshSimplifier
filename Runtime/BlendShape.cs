@@ -56,15 +56,6 @@ namespace UnityMeshSimplifier
             this.ShapeName = shapeName;
             this.Frames = frames;
         }
-
-#if OPTIMISATION_IDISPOSABLE
-        /// <inheritdoc cref="BlendShape"/>
-        public BlendShape(Unity.Collections.NativeText shapeName, BlendShapeFrame[] frames)
-        {
-            this.ShapeName = shapeName.ToString();
-            this.Frames = frames;
-        }
-#endif // OPTIMISATION_IDISPOSABLE
     }
 
     /// <summary>

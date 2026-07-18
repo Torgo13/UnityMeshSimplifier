@@ -43,8 +43,21 @@ namespace UnityMeshSimplifier
     internal struct ResizableArray<T>
         : IEnumerable<T>, IEquatable<ResizableArray<T>>, INativeDisposable where T : unmanaged
     {
+        #region Fields
         internal NativeList<T> _resizableArray;
+        #endregion
 
+        #region Properties
+        public readonly bool IsNull => _resizableArray.IsEmpty;
+        public readonly bool IsNotNull => !IsNull;
+
+        public readonly int Length => _resizableArray.IsEmpty ? 0 : _resizableArray.Length;
+        public readonly int Count => Length;
+        public readonly ResizableArray<T> Data => this;
+        public ref T this[int index] => ref _resizableArray.ElementAt(index);
+        #endregion
+
+        #region Constructor
         public ResizableArray(int initialCapacity, AllocatorManager.AllocatorHandle allocator)
         {
             _resizableArray = new NativeList<T>(initialCapacity, allocator);
@@ -74,12 +87,9 @@ namespace UnityMeshSimplifier
                 _resizableArray.AddNoResize(item);
             }
         }
+        #endregion
 
-        public readonly int Length => _resizableArray.Length;
-        public readonly int Count => _resizableArray.Length;
-        public readonly ResizableArray<T> Data => this;
-        public ref T this[int index] => ref _resizableArray.ElementAt(index);
-
+        #region Public Methods
         public void Clear() => _resizableArray.Clear();
         public void Add(in T value) => _resizableArray.Add(value);
         public void AddRange(T[] value)
@@ -96,29 +106,34 @@ namespace UnityMeshSimplifier
         public void ResizeUninitialized(int length) => _resizableArray.ResizeUninitialized(length);
         public void TrimExcess() => _resizableArray.TrimExcess();
         public NativeArray<T> AsArray() => _resizableArray.AsArray();
-        public readonly T[] ToArray() => _resizableArray.IsEmpty ? Array.Empty<T>() : _resizableArray.AsArray().ToArray();
+        public T[] ToArray() => _resizableArray.IsEmpty ? Array.Empty<T>() : _resizableArray.AsArray().ToArray();
+        public Span<T> AsSpan() => _resizableArray.IsEmpty ? (Span<T>)Array.Empty<T>() : (Span<T>)_resizableArray.AsArray();
 
-        public readonly void Resize(int length, bool trimExcess = false, bool clearMemory = false)
+        public void Resize(int length, bool trimExcess = false, bool clearMemory = false)
         {
+            if (!_resizableArray.IsCreated)
+                return;
+
             _resizableArray.Resize(length, clearMemory ? NativeArrayOptions.ClearMemory : NativeArrayOptions.UninitializedMemory);
             if (trimExcess)
             {
                 _resizableArray.TrimExcess();
             }
         }
+        #endregion
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "<Pending>")]
-        public static implicit operator ResizableArray<T>(UnityEngine.Object obj) => default;
+        public static implicit operator ResizableArray<T>(UnityEngine.Object? obj) => default;
         public static implicit operator ResizableArray<T>(NativeList<T> resizableArray) => new ResizableArray<T>(resizableArray);
         public static implicit operator NativeList<T>(ResizableArray<T> resizableArray) => resizableArray._resizableArray;
         public static implicit operator NativeArray<T>(ResizableArray<T> resizableArray) => resizableArray.AsArray();
-        public static implicit operator Span<T>(ResizableArray<T> resizableArray) => resizableArray.AsArray();
-        public static implicit operator ReadOnlySpan<T>(ResizableArray<T> resizableArray) => resizableArray.AsArray();
+        public static implicit operator Span<T>(ResizableArray<T> resizableArray) => resizableArray._resizableArray.IsEmpty ? new Span<T>() : resizableArray.AsArray().AsSpan();
+        public static implicit operator ReadOnlySpan<T>(ResizableArray<T> resizableArray) => resizableArray._resizableArray.IsEmpty ? new ReadOnlySpan<T>() : resizableArray.AsArray().AsReadOnlySpan();
         public static implicit operator T[](ResizableArray<T> resizableArray) => resizableArray.ToArray();
 
         #region INativeDisposable
-        public readonly Unity.Jobs.JobHandle Dispose(Unity.Jobs.JobHandle inputDeps) => _resizableArray.Dispose(inputDeps);
-        public readonly void Dispose() => _resizableArray.Dispose();
+        public Unity.Jobs.JobHandle Dispose(Unity.Jobs.JobHandle inputDeps) => _resizableArray.Dispose(inputDeps);
+        public void Dispose() => _resizableArray.Dispose();
         #endregion // INativeDisposable
 
         #region IEquatable
@@ -156,6 +171,9 @@ namespace UnityMeshSimplifier
         #endregion
 
         #region Properties
+        public bool IsNull => items.Length == 0;
+        public bool IsNotNull => !IsNull;
+
         /// <summary>
         /// Gets the length of this array.
         /// </summary>
