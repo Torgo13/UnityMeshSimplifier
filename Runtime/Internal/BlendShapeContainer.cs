@@ -42,6 +42,15 @@ namespace UnityMeshSimplifier.Internal
         private readonly BlendShapeFrameContainer[] frames;
 #endif // OPTIMISATION_IDISPOSABLE
 
+        internal string ShapeName => shapeName;
+        internal BlendShapeFrameContainer[] Frames => frames;
+
+        public BlendShapeContainer(string shapeName, BlendShapeFrameContainer[] frames)
+        {
+            this.shapeName = shapeName;
+            this.frames = frames;
+        }
+
         public BlendShapeContainer(BlendShape blendShape)
         {
 #if OPTIMISATION_IDISPOSABLE

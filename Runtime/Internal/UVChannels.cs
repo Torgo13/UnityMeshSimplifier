@@ -35,12 +35,12 @@ namespace UnityMeshSimplifier.Internal
     sealed
     internal class UVChannels<TVec>
 #if OPTIMISATION_IDISPOSABLE
-        : System.IDisposable where TVec : unmanaged
+        : System.IDisposable
 #endif // OPTIMISATION_IDISPOSABLE
+        where TVec : unmanaged
     {
 #if OPTIMISATION
         private readonly ResizableArray<TVec>?[] channels;
-        private TVec[]?[]? channelsData { get => null; set { /**/ } }
 #else
         private static readonly int UVChannelCount = MeshUtils.UVChannelCount;
 

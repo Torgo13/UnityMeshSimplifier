@@ -24,6 +24,10 @@ SOFTWARE.
 */
 #endregion
 
+#if UNITY_2018_2_OR_NEWER
+#define UNITY_8UV_SUPPORT
+#endif
+
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -120,7 +124,7 @@ namespace UnityMeshSimplifier
             int subMeshCount = indices.Length;
 
             IndexFormat indexFormat;
-            var indexMinMax = MeshUtils.GetSubMeshIndexMinMax(indices, out indexFormat);
+            using var indexMinMax = MeshUtils.GetSubMeshIndexMinMaxNative(indices, out indexFormat);
             newMesh.indexFormat = indexFormat;
 
             if (bindposes != null && bindposes.Length > 0)
@@ -223,7 +227,7 @@ namespace UnityMeshSimplifier
             int subMeshCount = indices.Length;
 
             IndexFormat indexFormat;
-            var indexMinMax = MeshUtils.GetSubMeshIndexMinMax(indices, out indexFormat);
+            using var indexMinMax = MeshUtils.GetSubMeshIndexMinMaxNative(indices, out indexFormat);
             newMesh.indexFormat = indexFormat;
 
             if (bindposes.IsCreated && bindposes.Length > 0)
@@ -312,7 +316,7 @@ namespace UnityMeshSimplifier
         }
 
         /// <inheritdoc cref="CreateMesh(Vector3[], int[][], Vector3[], Vector4[], Color[], BoneWeight[], List{Vector2}[], List{Vector3}[], List{Vector4}[], Matrix4x4[], ReadOnlySpan{BlendShape})"/>
-        public static Mesh CreateMesh(Unity.Collections.NativeArray<Vector3> vertices, int[][] indices, Vector3[]? normals, Vector4[]? tangents, Color[]? colors, BoneWeight[]? boneWeights, List<Vector2>?[]? uvs2D, List<Vector3>?[]? uvs3D, List<Vector4>?[]? uvs4D, Matrix4x4[]? bindposes, ReadOnlySpan<BlendShape> blendShapes)
+        internal static Mesh CreateMesh(Unity.Collections.NativeArray<Vector3> vertices, int[][] indices, Vector3[]? normals, Vector4[]? tangents, Color[]? colors, BoneWeight[]? boneWeights, List<Vector2>?[]? uvs2D, List<Vector3>?[]? uvs3D, List<Vector4>?[]? uvs4D, Matrix4x4[]? bindposes, ReadOnlySpan<Internal.BlendShapeContainer> blendShapes)
         {
 #if OPTIMISATION_NULL
 #else
@@ -326,7 +330,7 @@ namespace UnityMeshSimplifier
             int subMeshCount = indices.Length;
 
             IndexFormat indexFormat;
-            var indexMinMax = MeshUtils.GetSubMeshIndexMinMax(indices, out indexFormat);
+            using var indexMinMax = MeshUtils.GetSubMeshIndexMinMaxNative(indices, out indexFormat);
             newMesh.indexFormat = indexFormat;
 
             if (bindposes != null && bindposes.Length > 0)
@@ -462,6 +466,50 @@ namespace UnityMeshSimplifier
             return blendShapes;
         }
 
+        /// <inheritdoc cref="GetMeshBlendShapes(Mesh)"/>
+        internal static Internal.BlendShapeContainer[] GetMeshBlendShapeContainers(Mesh mesh)
+        {
+#if OPTIMISATION_NULL
+#else
+            if (mesh == null)
+                throw new ArgumentNullException(nameof(mesh));
+#endif // OPTIMISATION_NULL
+
+            int vertexCount = mesh.vertexCount;
+            int blendShapeCount = mesh.blendShapeCount;
+            if (blendShapeCount == 0)
+#if OPTIMISATION_NULL
+                return Array.Empty<Internal.BlendShapeContainer>();
+#else
+                return null;
+#endif // OPTIMISATION_NULL
+
+            var blendShapes = new Internal.BlendShapeContainer[blendShapeCount];
+
+            for (int blendShapeIndex = 0; blendShapeIndex < blendShapeCount; blendShapeIndex++)
+            {
+                string shapeName = mesh.GetBlendShapeName(blendShapeIndex);
+                int frameCount = mesh.GetBlendShapeFrameCount(blendShapeIndex);
+                var frames = new Internal.BlendShapeFrameContainer[frameCount];
+
+                for (int frameIndex = 0; frameIndex < frameCount; frameIndex++)
+                {
+                    float frameWeight = mesh.GetBlendShapeFrameWeight(blendShapeIndex, frameIndex);
+
+                    var deltaVertices = new Vector3[vertexCount];
+                    var deltaNormals = new Vector3[vertexCount];
+                    var deltaTangents = new Vector3[vertexCount];
+                    mesh.GetBlendShapeFrameVertices(blendShapeIndex, frameIndex, deltaVertices, deltaNormals, deltaTangents);
+
+                    frames[frameIndex] = new Internal.BlendShapeFrameContainer(frameWeight, deltaVertices, deltaNormals, deltaTangents);
+                }
+
+                blendShapes[blendShapeIndex] = new Internal.BlendShapeContainer(shapeName, frames);
+            }
+
+            return blendShapes;
+        }
+
         /// <summary>
         /// Applies and overrides the specified blend shapes on the specified mesh.
         /// </summary>
@@ -490,6 +538,31 @@ namespace UnityMeshSimplifier
                     {
                         mesh.AddBlendShapeFrame(shapeName, frames[frameIndex].FrameWeight, frames[frameIndex].DeltaVertices, frames[frameIndex].DeltaNormals, frames[frameIndex].DeltaTangents);
                     }
+                }
+            }
+        }
+
+        /// <inheritdoc cref="ApplyMeshBlendShapes(Mesh, ReadOnlySpan{BlendShape}"/>
+        internal static void ApplyMeshBlendShapes(Mesh mesh, ReadOnlySpan<Internal.BlendShapeContainer> blendShapes)
+        {
+#if OPTIMISATION_NULL
+#else
+            if (mesh == null)
+                throw new ArgumentNullException(nameof(mesh));
+#endif // OPTIMISATION_NULL
+
+            mesh.ClearBlendShapes();
+            if (blendShapes == null || blendShapes.Length == 0)
+                return;
+
+            for (int blendShapeIndex = 0; blendShapeIndex < blendShapes.Length; blendShapeIndex++)
+            {
+                string shapeName = blendShapes[blendShapeIndex].ShapeName;
+                var frames = blendShapes[blendShapeIndex].Frames;
+
+                for (int frameIndex = 0; frameIndex < frames.Length; frameIndex++)
+                {
+                    mesh.AddBlendShapeFrame(shapeName, frames[frameIndex].FrameWeight, frames[frameIndex].DeltaVertices, frames[frameIndex].DeltaNormals, frames[frameIndex].DeltaTangents);
                 }
             }
         }
@@ -700,7 +773,25 @@ namespace UnityMeshSimplifier
                 throw new ArgumentNullException(nameof(indices));
 
             var result = new Vector2Int[indices.Length];
+            GetSubMeshIndexMinMax(indices, out indexFormat, result);
+            return result;
+        }
 
+        /// <inheritdoc cref="GetSubMeshIndexMinMax(int[][], out IndexFormat)"/>
+        public static Unity.Collections.NativeArray<Vector2Int> GetSubMeshIndexMinMaxNative(int[][] indices, out IndexFormat indexFormat)
+        {
+            var result = new Unity.Collections.NativeArray<Vector2Int>(indices.Length,
+                Unity.Collections.Allocator.Persistent,
+                Unity.Collections.NativeArrayOptions.UninitializedMemory);
+
+            GetSubMeshIndexMinMax(indices, out indexFormat, result);
+            return result;
+        }
+
+        /// <inheritdoc cref="GetSubMeshIndexMinMax(int[][], out IndexFormat)"/>
+        static void GetSubMeshIndexMinMax(int[][] indices, out IndexFormat indexFormat,
+            Span<Vector2Int> result)
+        {
             indexFormat = IndexFormat.UInt16;
             for (int subMeshIndex = 0; subMeshIndex < indices.Length; subMeshIndex++)
             {
@@ -714,7 +805,6 @@ namespace UnityMeshSimplifier
                     indexFormat = IndexFormat.UInt32;
                 }
             }
-            return result;
         }
         #endregion
 

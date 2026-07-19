@@ -41,6 +41,19 @@ namespace UnityMeshSimplifier.Internal
         private readonly ResizableArray<Vector3> deltaNormals;
         private readonly ResizableArray<Vector3> deltaTangents;
 
+        internal float FrameWeight => frameWeight;
+        internal System.ReadOnlySpan<Vector3> DeltaVertices => deltaVertices.AsReadOnlySpan();
+        internal System.ReadOnlySpan<Vector3> DeltaNormals => deltaNormals.AsReadOnlySpan();
+        internal System.ReadOnlySpan<Vector3> DeltaTangents => deltaTangents.AsReadOnlySpan();
+
+        public BlendShapeFrameContainer(float frameWeight, Vector3[] deltaVertices, Vector3[] deltaNormals, Vector3[] deltaTangents)
+        {
+            this.frameWeight = frameWeight;
+            this.deltaVertices = new ResizableArray<Vector3>(deltaVertices);
+            this.deltaNormals = new ResizableArray<Vector3>(deltaNormals);
+            this.deltaTangents = new ResizableArray<Vector3>(deltaTangents);
+        }
+
         public BlendShapeFrameContainer(BlendShapeFrame frame)
         {
             frameWeight = frame.FrameWeight;

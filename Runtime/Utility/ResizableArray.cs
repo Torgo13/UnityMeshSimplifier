@@ -167,6 +167,7 @@ namespace UnityMeshSimplifier
         private T[] items;
         private int length = 0;
 
+        readonly
         private static T[] emptyArr = new T[0];
         #endregion
 
@@ -269,7 +270,13 @@ namespace UnityMeshSimplifier
         }
         #endregion
 
+        public static implicit operator Span<T>(ResizableArray<T> resizableArray) => resizableArray.AsSpan();
+        public static implicit operator ReadOnlySpan<T>(ResizableArray<T> resizableArray) => resizableArray.AsReadOnlySpan();
+
         #region Public Methods
+        public Span<T> AsSpan() => items.AsSpan(start: 0, length);
+        public ReadOnlySpan<T> AsReadOnlySpan() => new ReadOnlySpan<T>(items, start: 0, length);
+
         /// <summary>
         /// Clears this array.
         /// </summary>

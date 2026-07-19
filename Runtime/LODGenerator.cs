@@ -220,10 +220,7 @@ namespace UnityMeshSimplifier
 
                     levelRenderers = new Renderer[staticRenderers.Length + skinnedRenderers.Length];
 
-#if OPTIMISATION_NULL
-#else
                     if (staticRenderers != null)
-#endif // OPTIMISATION_NULL
                     {
                         for (int rendererIndex = 0; rendererIndex < staticRenderers.Length; rendererIndex++)
                         {
@@ -233,10 +230,7 @@ namespace UnityMeshSimplifier
                         }
                     }
 
-#if OPTIMISATION_NULL
-#else
                     if (skinnedRenderers != null)
-#endif // OPTIMISATION_NULL
                     {
                         for (int rendererIndex = 0; rendererIndex < skinnedRenderers.Length; rendererIndex++)
                         {
@@ -320,6 +314,7 @@ namespace UnityMeshSimplifier
         private static List<RendererInfo> GetStaticRenderers(System.ReadOnlySpan<MeshRenderer> renderers,
             List<RendererInfo> newRenderers)
         {
+            newRenderers.Clear();
             for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
             {
                 var renderer = renderers[rendererIndex];
@@ -354,6 +349,7 @@ namespace UnityMeshSimplifier
         private static List<RendererInfo> GetSkinnedRenderers(System.ReadOnlySpan<SkinnedMeshRenderer> renderers,
             List<RendererInfo> newRenderers)
         {
+            newRenderers.Clear();
             for (int rendererIndex = 0; rendererIndex < renderers.Length; rendererIndex++)
             {
                 var renderer = renderers[rendererIndex];
@@ -383,14 +379,12 @@ namespace UnityMeshSimplifier
         private static List<RendererInfo> CombineStaticMeshes(in Matrix4x4 worldToLocalMatrix, string name, int levelIndex, System.ReadOnlySpan<MeshRenderer> renderers,
             List<RendererInfo> newRenderers)
         {
+            newRenderers.Clear();
+
+            if (renderers.Length == 0)
 #if OPTIMISATION_NULL
-            if (renderers.Length == 0)
-            {
-                newRenderers.Clear();
                 return newRenderers;
-            }
 #else
-            if (renderers.Length == 0)
                 return null;
 #endif // OPTIMISATION_NULL
 
@@ -419,14 +413,12 @@ namespace UnityMeshSimplifier
         private static List<RendererInfo> CombineSkinnedMeshes(Vector3 position, string name, int levelIndex, System.ReadOnlySpan<SkinnedMeshRenderer> renderers,
             List<SkinnedMeshRenderer> combineRenderersList, List<RendererInfo> newRenderers)
         {
+            newRenderers.Clear();
+
+            if (renderers.Length == 0)
 #if OPTIMISATION_NULL
-            if (renderers.Length == 0)
-            {
-                newRenderers.Clear();
                 return newRenderers;
-            }
 #else
-            if (renderers.Length == 0)
                 return null;
 #endif // OPTIMISATION_NULL
 
@@ -725,11 +717,8 @@ namespace UnityMeshSimplifier
             var backupComponents = gameObject.GetComponents<LODBackupComponent>();
             foreach (var backupComponent in backupComponents)
             {
-                var originalRenderers = backupComponent.OriginalRenderers;
-#if OPTIMISATION_NULL
-#else
+                var originalRenderers = System.MemoryExtensions.AsSpan(backupComponent.OriginalRenderers);
                 if (originalRenderers != null)
-#endif // OPTIMISATION_NULL
                 {
                     foreach (var renderer in originalRenderers)
                     {

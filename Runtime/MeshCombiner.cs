@@ -275,10 +275,10 @@ namespace UnityMeshSimplifier
                 if (meshBones != null && meshBoneWeights.Count > 0 && meshBindposes.Length > 0 && meshBones.Length == meshBindposes.Length)
                 {
                     if (usedBindposes.Count == 0)
+                    {
                         usedBindposes.AddRange(meshBindposes);
-
-                    if (usedBones.Count == 0)
                         usedBones.AddRange(meshBones);
+                    }
 
                     using var boneIndicesNative = new Unity.Collections.NativeArray<int>(meshBones.Length,
                         Unity.Collections.Allocator.Persistent,
@@ -389,7 +389,7 @@ namespace UnityMeshSimplifier
 #if OPTIMISATION_NULL
             if (src.Count == 0)
 #else
-            if (src == null || src.Count == 0)
+            if (src == null || src.Count() == 0)
 #endif // OPTIMISATION_NULL
             {
                 if (dest != null)
@@ -438,11 +438,8 @@ namespace UnityMeshSimplifier
 
         private static void TransformNormals(System.Span<Vector3> normals, ref Matrix4x4 transform)
         {
-#if OPTIMISATION_NULL
-#else
             if (normals == null)
                 return;
-#endif // OPTIMISATION_NULL
 
             for (int i = 0; i < normals.Length; i++)
             {
@@ -455,11 +452,8 @@ namespace UnityMeshSimplifier
 
         private static void TransformTangents(System.Span<Vector4> tangents, ref Matrix4x4 transform)
         {
-#if OPTIMISATION_NULL
-#else
             if (tangents == null)
                 return;
-#endif // OPTIMISATION_NULL
 
             for (int i = 0; i < tangents.Length; i++)
             {
