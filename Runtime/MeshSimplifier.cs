@@ -57,6 +57,9 @@ namespace UnityMeshSimplifier
     /// The mesh simplifier.
     /// Deeply based on https://github.com/sp4cerat/Fast-Quadric-Mesh-Simplification but rewritten completely in C#.
     /// </summary>
+#if USING_BURST
+    [Unity.Burst.BurstCompile]
+#endif // USING_BURST
     public sealed class MeshSimplifier
 #if OPTIMISATION_IDISPOSABLE
         : IDisposable
@@ -612,6 +615,8 @@ namespace UnityMeshSimplifier
                 + 2 * q.m5 * y * z + 2 * q.m6 * y + q.m7 * z * z + 2 * q.m8 * z + q.m9;
         }
 
+#if USING_BURST
+#else
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private double CurvatureError(ref Vertex vert0, ref Vertex vert1)
         {
@@ -647,7 +652,12 @@ namespace UnityMeshSimplifier
 
             return diffVector * maxDotOuter;
         }
+#endif // USING_BURST
 
+#if USING_BURST
+        [Unity.Burst.BurstCompile(FloatMode = Unity.Burst.FloatMode.Fast)]
+        static
+#endif // USING_BURST
         private double CalculateError(ref Vertex vert0, ref Vertex vert1, out Vector3d result)
         {
             // compute interpolated vertex
@@ -663,11 +673,16 @@ namespace UnityMeshSimplifier
                     1.0 / det * q.Determinant3(),   // vy = A42/det(q_delta)
                     -1.0 / det * q.Determinant4()); // vz = A43/det(q_delta)
 
+#if USING_BURST // Disable PreserveSurfaceCurvature to allow for Burst compatibility
+                const
+                double curvatureError = 0;
+#else
                 double curvatureError = 0;
                 if (simplificationOptions.PreserveSurfaceCurvature)
                 {
                     curvatureError = CurvatureError(ref vert0, ref vert1);
                 }
+#endif // USING_BURST
 
                 error = VertexError(ref q, result.x, result.y, result.z) + curvatureError;
             }
@@ -710,6 +725,9 @@ namespace UnityMeshSimplifier
         #endregion
 
         #region Calculate Barycentric Coordinates
+#if USING_BURST
+        [Unity.Burst.BurstCompile(FloatMode = Unity.Burst.FloatMode.Fast)]
+#endif // USING_BURST
         private static void CalculateBarycentricCoords(ref Vector3d point, ref Vector3d a, ref Vector3d b, ref Vector3d c, out Vector3 result)
         {
             Vector3d v0 = (b - a), v1 = (c - a), v2 = (point - a);
@@ -748,6 +766,74 @@ namespace UnityMeshSimplifier
         /// Check if a triangle flips when this edge is removed
         /// </summary>
         private bool Flipped(ref Vector3d p, int i0, int i1, ref Vertex v0, bool[] deleted)
+#if USING_BURST
+        {
+            const Unity.Collections.Allocator allocator = Unity.Collections.Allocator.TempJob;
+            var deletedNative = new Unity.Collections.NativeArray<bool>(deleted, allocator);
+            var refs = new Unity.Collections.NativeArray<Ref>(this.refs.Data, allocator);
+            var triangles = new Unity.Collections.NativeArray<Triangle>(this.triangles.Data, allocator);
+            var vertices = new Unity.Collections.NativeArray<Vertex>(this.vertices.Data, allocator);
+
+            bool flipped = Flipped(p, i0, i1, v0, ref deletedNative,
+                refs.AsReadOnly(), triangles.AsReadOnly(), vertices.AsReadOnly());
+
+            deletedNative.CopyTo(deleted);
+            deletedNative.Dispose();
+            refs.Dispose();
+            triangles.Dispose();
+            vertices.Dispose();
+
+            return flipped;
+        }
+
+        [Unity.Burst.BurstCompile(FloatMode = Unity.Burst.FloatMode.Fast)]
+        private static bool Flipped(in Vector3d p, int i0, int i1, in Vertex v0,
+            ref Unity.Collections.NativeArray<bool> deleted,
+            in Unity.Collections.NativeArray<Ref>.ReadOnly refs,
+            in Unity.Collections.NativeArray<Triangle>.ReadOnly triangles,
+            in Unity.Collections.NativeArray<Vertex>.ReadOnly vertices)
+        {
+            int tcount = v0.tcount;
+            for (int k = 0; k < tcount; k++)
+            {
+                Ref r = refs[v0.tstart + k];
+                if (triangles[r.tid].deleted)
+                    continue;
+
+                int s = r.tvertex;
+                int id1 = triangles[r.tid][(s + 1) % 3];
+                int id2 = triangles[r.tid][(s + 2) % 3];
+#if BUGFIX
+                if (id1 == i0 || id2 == i1)
+#else
+                if (id1 == i1 || id2 == i1)
+#endif // BUGFIX
+                {
+                    deleted[k] = true;
+                    continue;
+                }
+
+                Vector3d d1 = vertices[id1].p - p;
+                d1.Normalize();
+                Vector3d d2 = vertices[id2].p - p;
+                d2.Normalize();
+                double dot = Vector3d.Dot(ref d1, ref d2);
+                if (Math.Abs(dot) > 0.999)
+                    return true;
+
+                Vector3d n;
+                Vector3d.Cross(ref d1, ref d2, out n);
+                n.Normalize();
+                deleted[k] = false;
+                Vector3d n2 = triangles[r.tid].n;
+                dot = Vector3d.Dot(ref n, ref n2);
+                if (dot < 0.2)
+                    return true;
+            }
+
+            return false;
+        }
+#else
         {
             int tcount = v0.tcount;
             var refs = this.refs.Data;
@@ -791,6 +877,7 @@ namespace UnityMeshSimplifier
 
             return false;
         }
+#endif // USING_BURST
         #endregion
 
         #region Update Triangles
@@ -1556,6 +1643,8 @@ namespace UnityMeshSimplifier
         #endregion
 
         #region Triangle helper functions
+#if USING_BURST
+#else
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void GetTrianglesContainingVertex(ref Vertex vert, HashSet<Triangle> tris)
         {
@@ -1587,6 +1676,7 @@ namespace UnityMeshSimplifier
                 }
             }
         }
+#endif // USING_BURST
         #endregion Triangle helper functions
         #endregion
 
@@ -2385,6 +2475,12 @@ namespace UnityMeshSimplifier
         /// <param name="quality">The target quality (between 0 and 1).</param>
         public void SimplifyMesh(float quality)
         {
+            if (quality >= 1)
+            {
+                SimplifyMeshLossless();
+                return;
+            }
+
             quality = Mathf.Clamp01(quality);
 
             int deletedTris = 0;
@@ -2444,7 +2540,6 @@ namespace UnityMeshSimplifier
             }
         }
 
-#if UNUSED
         /// <summary>
         /// Simplifies the mesh without losing too much quality.
         /// </summary>
@@ -2476,6 +2571,7 @@ namespace UnityMeshSimplifier
                 //
                 // The following numbers works well for most models.
                 // If it does not, try to adjust the 3 parameters
+                const
                 double threshold = DoubleEpsilon;
 
                 if (verbose)
@@ -2504,7 +2600,6 @@ namespace UnityMeshSimplifier
                 Debug.LogFormat("Finished simplification with triangle count {0}", this.triangles.Length);
             }
         }
-#endif // UNUSED
         #endregion
 
         #region To Mesh

@@ -510,10 +510,10 @@ namespace UnityMeshSimplifier
         {
             var mesh = renderer.mesh;
 
-#if OPTIMISATION_NULL // Check here instead of in MeshSimplifier.Initialize(mesh)
+#if ZERO // OPTIMISATION_NULL // Check here instead of in MeshSimplifier.Initialize(mesh)
             if (mesh == null)
                 throw new System.ArgumentNullException(nameof(mesh));
-#endif // OPTIMISATION_NULL
+#endif // ZERO // OPTIMISATION_NULL
 
             // Simplify the mesh if necessary
             if (level.Quality < 1f)
@@ -631,14 +631,17 @@ namespace UnityMeshSimplifier
         private static Renderer[] GetChildRenderersForLOD(GameObject gameObject)
         {
             var resultRenderers = new List<Renderer>();
-            CollectChildRenderersForLOD(gameObject.transform, resultRenderers);
+            var childRenderers = new List<Renderer>();
+            CollectChildRenderersForLOD(gameObject.transform, resultRenderers, childRenderers);
             return resultRenderers.ToArray();
         }
 
-        private static void CollectChildRenderersForLOD(Transform transform, List<Renderer> resultRenderers)
+        private static void CollectChildRenderersForLOD(Transform transform, List<Renderer> resultRenderers,
+            List<Renderer> childRenderers)
         {
             // Collect the renderers of this transform
-            var childRenderers = transform.GetComponents<Renderer>();
+            childRenderers.Clear();
+            transform.GetComponents<Renderer>(childRenderers);
             resultRenderers.AddRange(childRenderers);
 
             int childCount = transform.childCount;
@@ -646,7 +649,8 @@ namespace UnityMeshSimplifier
             {
                 // Skip children that are not active
                 var childTransform = transform.GetChild(i);
-                if (!childTransform.gameObject.activeSelf)
+                var childGameObject = childTransform.gameObject;
+                if (!childGameObject.activeSelf)
                     continue;
 
                 // If the transform have the identical name as to our LOD Parent GO name, then we also skip it
@@ -654,13 +658,13 @@ namespace UnityMeshSimplifier
                     continue;
 
                 // Skip children that has a LOD Group or a LOD Generator Helper component
-                if (childTransform.GetComponent<LODGroup>() != null)
+                if (childGameObject.TryGetComponent<LODGroup>(out _))
                     continue;
-                else if (childTransform.GetComponent<LODGeneratorHelper>() != null)
+                if (childGameObject.TryGetComponent<LODGeneratorHelper>(out _) )
                     continue;
 
                 // Continue recursively through the children of this transform
-                CollectChildRenderersForLOD(childTransform, resultRenderers);
+                CollectChildRenderersForLOD(childTransform, resultRenderers, childRenderers);
             }
         }
 

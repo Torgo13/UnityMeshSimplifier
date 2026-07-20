@@ -452,9 +452,8 @@ namespace UnityMeshSimplifier.Editor
                 renderersProperty.ClearArray();
             }
 
-            using var _0 = UnityEngine.Pool.ListPool<Renderer>.Get(out var existingRendererList);
-            if (existingRendererList.Capacity < renderersProperty.arraySize)
-                existingRendererList.Capacity = renderersProperty.arraySize;
+            using var _0 = UnityEngine.Pool.HashSetPool<Renderer>.Get(out var existingRendererList);
+            existingRendererList.EnsureCapacity(renderersProperty.arraySize);
             for (int i = 0; i < renderersProperty.arraySize; i++)
             {
                 var rendererProperty = renderersProperty.GetArrayElementAtIndex(i);
@@ -467,12 +466,11 @@ namespace UnityMeshSimplifier.Editor
 
             foreach (var renderer in renderers)
             {
-                if (!existingRendererList.Contains(renderer))
+                if (existingRendererList.Add(renderer))
                 {
                     ++renderersProperty.arraySize;
                     var rendererProperty = renderersProperty.GetArrayElementAtIndex(renderersProperty.arraySize - 1);
                     rendererProperty.objectReferenceValue = renderer;
-                    existingRendererList.Add(renderer);
                 }
             }
 
@@ -634,9 +632,13 @@ namespace UnityMeshSimplifier.Editor
 
             foreach (var obj in objects)
             {
-                if (obj as GameObject != null)
+                if (obj as GameObject == null)
+                    continue;
+
+                GameObject go = (GameObject)obj;
+                if (go.activeInHierarchy)
                 {
-                    gameObjects.Add((GameObject)obj);
+                    gameObjects.Add(go);
                 }
             }
 
@@ -712,7 +714,8 @@ namespace UnityMeshSimplifier.Editor
             {
                 foreach (var gameObject in childGameObjects)
                 {
-                    if (gameObject.TryGetComponent<Renderer>(out var renderer))
+                    if (gameObject.TryGetComponent<Renderer>(out var renderer)
+                        && renderer.enabled)
                     {
                         rendererList.Add(renderer);
                     }

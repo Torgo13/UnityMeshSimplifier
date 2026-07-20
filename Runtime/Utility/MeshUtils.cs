@@ -45,7 +45,7 @@ namespace UnityMeshSimplifier
         /// The count of supported UV channels.
         /// </summary>
 #if UNITY_8UV_SUPPORT
-        public static readonly int UVChannelCount = 8;
+        public const int UVChannelCount = 8;
 #else
         public static readonly int UVChannelCount = 4;
 #endif
@@ -542,7 +542,7 @@ namespace UnityMeshSimplifier
             }
         }
 
-        /// <inheritdoc cref="ApplyMeshBlendShapes(Mesh, ReadOnlySpan{BlendShape}"/>
+        /// <inheritdoc cref="ApplyMeshBlendShapes(Mesh, ReadOnlySpan{BlendShape})"/>
         internal static void ApplyMeshBlendShapes(Mesh mesh, ReadOnlySpan<Internal.BlendShapeContainer> blendShapes)
         {
 #if OPTIMISATION_NULL

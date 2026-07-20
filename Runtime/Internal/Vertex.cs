@@ -36,8 +36,11 @@ namespace UnityMeshSimplifier.Internal
         public int tstart;
         public int tcount;
         public SymmetricMatrix q;
+        [System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.U1)]
         public bool borderEdge;
+        [System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.U1)]
         public bool uvSeamEdge;
+        [System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.U1)]
         public bool uvFoldoverEdge;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -33,6 +33,9 @@ namespace UnityMeshSimplifier
     /// <summary>
     /// Contains methods for combining meshes.
     /// </summary>
+#if USING_BURST
+    [Unity.Burst.BurstCompile]
+#endif // USING_BURST
     public static class MeshCombiner
     {
         #region Public Methods
@@ -422,6 +425,73 @@ namespace UnityMeshSimplifier
             return newArr;
         }
 
+#if USING_BURST
+        private static void TransformVertices(List<Vector3> vertices, ref Matrix4x4 transform)
+        {
+            var verticesNative = new Unity.Collections.NativeArray<Vector3>(vertices.Count,
+                Unity.Collections.Allocator.TempJob,
+                Unity.Collections.NativeArrayOptions.UninitializedMemory);
+
+            vertices.AsReadOnlySpan().CopyTo(verticesNative.AsSpan());
+            TransformVertices(ref verticesNative, transform);
+            verticesNative.AsReadOnlySpan().CopyTo(vertices.AsSpan());
+            verticesNative.Dispose();
+        }
+
+        [Unity.Burst.BurstCompile(FloatMode = Unity.Burst.FloatMode.Fast)]
+        private static void TransformVertices(ref Unity.Collections.NativeArray<Vector3> vertices, in Matrix4x4 transform)
+        {
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                vertices[i] = transform.MultiplyPoint3x4(vertices[i]);
+            }
+        }
+
+        private static void TransformNormals(List<Vector3> normals, ref Matrix4x4 transform)
+        {
+            var normalsNative = new Unity.Collections.NativeArray<Vector3>(normals.Count,
+                Unity.Collections.Allocator.TempJob,
+                Unity.Collections.NativeArrayOptions.UninitializedMemory);
+
+            normals.AsReadOnlySpan().CopyTo(normalsNative.AsSpan());
+            TransformNormals(ref normalsNative, transform);
+            normalsNative.AsReadOnlySpan().CopyTo(normals.AsSpan());
+            normalsNative.Dispose();
+        }
+
+        [Unity.Burst.BurstCompile(FloatMode = Unity.Burst.FloatMode.Fast)]
+        private static void TransformNormals(ref Unity.Collections.NativeArray<Vector3> normals, in Matrix4x4 transform)
+        {
+            for (int i = 0; i < normals.Length; i++)
+            {
+                normals[i] = transform.MultiplyVector(normals[i]);
+            }
+        }
+
+        private static void TransformTangents(List<Vector4> tangents, ref Matrix4x4 transform)
+        {
+            var tangentsNative = new Unity.Collections.NativeArray<Vector4>(tangents.Count,
+                Unity.Collections.Allocator.TempJob,
+                Unity.Collections.NativeArrayOptions.UninitializedMemory);
+
+            tangents.AsReadOnlySpan().CopyTo(tangentsNative.AsSpan());
+            TransformTangents(ref tangentsNative, transform);
+            tangentsNative.AsReadOnlySpan().CopyTo(tangents.AsSpan());
+            tangentsNative.Dispose();
+        }
+
+        [Unity.Burst.BurstCompile(FloatMode = Unity.Burst.FloatMode.Fast)]
+        private static void TransformTangents(ref Unity.Collections.NativeArray<Vector4> tangents, in Matrix4x4 transform)
+        {
+            for (int i = 0; i < tangents.Length; i++)
+            {
+                Vector3 tangent = (Vector3)tangents[i];
+                Vector4 tangentDir = (Vector4)transform.MultiplyVector(tangent);
+                tangentDir.w = tangents[i].w;
+                tangents[i] = tangentDir;
+            }
+        }
+#else
         private static void TransformVertices(List<Vector3> vertices, ref Matrix4x4 transform)
             => TransformVertices(vertices.AsSpan(), ref transform);
 
@@ -458,15 +528,12 @@ namespace UnityMeshSimplifier
             for (int i = 0; i < tangents.Length; i++)
             {
                 Vector3 tangent = (Vector3)tangents[i];
-#if UNITY_6000_3_OR_NEWER
-                Vector4 tangentDir = (Vector4)transform.MultiplyVector(in tangent);
-#else
                 Vector4 tangentDir = (Vector4)transform.MultiplyVector(tangent);
-#endif // UNITY_6000_3_OR_NEWER
                 tangentDir.w = tangents[i].w;
                 tangents[i] = tangentDir;
             }
         }
+#endif // USING_BURST
 
         private static void RemapBones(List<BoneWeight> boneWeights, System.ReadOnlySpan<int> boneIndices)
             => RemapBones(boneWeights.AsSpan(), boneIndices);

@@ -2,9 +2,9 @@
     "name": "Whinarn.UnityMeshSimplifier.Runtime",
     "rootNamespace": "UnityMeshSimplifier",
     "references": [
+        "GUID:2665a8d13d1b3f18800f46e256720795",
         "GUID:e0cd26848372d4e5c891c569017e11f1"
     ],
-    "optionalUnityReferences": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -17,6 +17,12 @@
             "name": "Unity",
             "expression": "2018.2",
             "define": "UNITY_8UV_SUPPORT"
+        },
+        {
+            "name": "com.unity.burst",
+            "expression": "",
+            "define": "USING_BURST"
         }
-    ]
+    ],
+    "noEngineReferences": false
 }
