@@ -41,6 +41,7 @@ namespace UnityMeshSimplifier
 
 #if OPTIMISATION
         private static readonly char[] invalidFileNameChars = Path.GetInvalidFileNameChars();
+
         internal static string MakeSafeFileName(string name,
 		    StringBuilder sb)
         {
@@ -48,6 +49,7 @@ namespace UnityMeshSimplifier
                 return name;
 
             _ = sb.Clear();
+            _ = sb.EnsureCapacity(name.Length);
 #else
         internal static string MakeSafeFileName(string name)
         {

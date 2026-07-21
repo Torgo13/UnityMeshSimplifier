@@ -248,7 +248,7 @@ namespace UnityMeshSimplifier
                 lods[levelIndex] = new LOD(level.ScreenRelativeTransitionHeight, levelRenderers);
             }
 
-            var renderersToDisable = renderersToDisableHashSet.ToArray();
+            Renderer[] renderersToDisable = renderersToDisableHashSet.ToArray();
             CreateBackup(gameObject, renderersToDisable);
             foreach (var renderer in renderersToDisable)
             {
@@ -631,16 +631,19 @@ namespace UnityMeshSimplifier
         private static Renderer[] GetChildRenderersForLOD(GameObject gameObject)
         {
             var resultRenderers = new List<Renderer>();
-            var childRenderers = new List<Renderer>();
-            CollectChildRenderersForLOD(gameObject.transform, resultRenderers, childRenderers);
+            CollectChildRenderersForLOD(gameObject.transform, resultRenderers);
             return resultRenderers.ToArray();
         }
 
         private static void CollectChildRenderersForLOD(Transform transform, List<Renderer> resultRenderers,
-            List<Renderer> childRenderers)
+            List<Renderer>? childRenderers = null)
         {
+            if (childRenderers == null)
+                childRenderers = new List<Renderer>();
+            else
+                childRenderers.Clear();
+                
             // Collect the renderers of this transform
-            childRenderers.Clear();
             transform.GetComponents<Renderer>(childRenderers);
             resultRenderers.AddRange(childRenderers);
 

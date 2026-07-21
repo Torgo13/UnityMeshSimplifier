@@ -55,7 +55,14 @@ namespace UnityMeshSimplifier.Internal
             {
                 for (int i = 0; i < UVChannelCount; i++)
                 {
-                    channelsData[i] = channels[i]?.Data ?? null;
+                    if (channels[i] != null)
+                    {
+                        channelsData[i] = channels[i].Data;
+                    }
+                    else
+                    {
+                        channelsData[i] = null;
+                    }
                 }
                 return channelsData;
             }

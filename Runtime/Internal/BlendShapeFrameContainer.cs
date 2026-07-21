@@ -97,6 +97,7 @@ namespace UnityMeshSimplifier.Internal
         #region INativeDisposable
         public Unity.Jobs.JobHandle Dispose(Unity.Jobs.JobHandle inputDeps)
             => deltaTangents.Dispose(deltaNormals.Dispose(deltaVertices.Dispose(inputDeps)));
+
         public void Dispose()
         {
             deltaVertices.Dispose();

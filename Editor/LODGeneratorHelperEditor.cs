@@ -681,7 +681,7 @@ namespace UnityMeshSimplifier.Editor
                 if (EditorUtility.DisplayDialog("Reparent GameObjects", "Some objects are not children of the LODGenerator GameObject." +
                     " Do you want to reparent them and add them to the LODGenerator?", "Yes, Reparent", "No, Use Only Existing Children"))
                 {
-                    var relocatedList = UnityEngine.Pool.ListPool<GameObject>.Get();
+                    using var _0 = UnityEngine.Pool.ListPool<GameObject>.Get(out var relocatedList);
                     foreach (var gameObject in notChild)
                     {
                         gameObject.transform.SetParent(ourTransform, true);
@@ -689,7 +689,6 @@ namespace UnityMeshSimplifier.Editor
                     }
 
                     childGameObjects = childGameObjects.Union(relocatedList);
-                    UnityEngine.Pool.ListPool<GameObject>.Release(relocatedList);
                 }
             }
 
@@ -714,8 +713,7 @@ namespace UnityMeshSimplifier.Editor
             {
                 foreach (var gameObject in childGameObjects)
                 {
-                    if (gameObject.TryGetComponent<Renderer>(out var renderer)
-                        && renderer.enabled)
+                    if (gameObject.TryGetComponent<Renderer>(out var renderer))
                     {
                         rendererList.Add(renderer);
                     }

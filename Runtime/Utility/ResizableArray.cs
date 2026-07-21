@@ -179,6 +179,12 @@ namespace UnityMeshSimplifier
         public bool IsNotNull => !IsNull;
         public bool IsEmpty => IsNull;
         public bool IsNotEmpty => !IsEmpty;
+        
+        public Span<T> AsSpan() => items.AsSpan(start: 0, length);
+        public ReadOnlySpan<T> AsReadOnlySpan() => new ReadOnlySpan<T>(items, start: 0, length);
+
+        public static implicit operator Span<T>(ResizableArray<T> resizableArray) => resizableArray.AsSpan();
+        public static implicit operator ReadOnlySpan<T>(ResizableArray<T> resizableArray) => resizableArray.AsReadOnlySpan();
 
         /// <summary>
         /// Gets the length of this array.
@@ -275,13 +281,7 @@ namespace UnityMeshSimplifier
         }
         #endregion
 
-        public static implicit operator Span<T>(ResizableArray<T> resizableArray) => resizableArray.AsSpan();
-        public static implicit operator ReadOnlySpan<T>(ResizableArray<T> resizableArray) => resizableArray.AsReadOnlySpan();
-
         #region Public Methods
-        public Span<T> AsSpan() => items.AsSpan(start: 0, length);
-        public ReadOnlySpan<T> AsReadOnlySpan() => new ReadOnlySpan<T>(items, start: 0, length);
-
         /// <summary>
         /// Clears this array.
         /// </summary>

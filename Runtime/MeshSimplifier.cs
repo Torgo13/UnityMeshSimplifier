@@ -766,74 +766,6 @@ namespace UnityMeshSimplifier
         /// Check if a triangle flips when this edge is removed
         /// </summary>
         private bool Flipped(ref Vector3d p, int i0, int i1, ref Vertex v0, bool[] deleted)
-#if USING_BURST
-        {
-            const Unity.Collections.Allocator allocator = Unity.Collections.Allocator.TempJob;
-            var deletedNative = new Unity.Collections.NativeArray<bool>(deleted, allocator);
-            var refs = new Unity.Collections.NativeArray<Ref>(this.refs.Data, allocator);
-            var triangles = new Unity.Collections.NativeArray<Triangle>(this.triangles.Data, allocator);
-            var vertices = new Unity.Collections.NativeArray<Vertex>(this.vertices.Data, allocator);
-
-            bool flipped = Flipped(p, i0, i1, v0, ref deletedNative,
-                refs.AsReadOnly(), triangles.AsReadOnly(), vertices.AsReadOnly());
-
-            deletedNative.CopyTo(deleted);
-            deletedNative.Dispose();
-            refs.Dispose();
-            triangles.Dispose();
-            vertices.Dispose();
-
-            return flipped;
-        }
-
-        [Unity.Burst.BurstCompile(FloatMode = Unity.Burst.FloatMode.Fast)]
-        private static bool Flipped(in Vector3d p, int i0, int i1, in Vertex v0,
-            ref Unity.Collections.NativeArray<bool> deleted,
-            in Unity.Collections.NativeArray<Ref>.ReadOnly refs,
-            in Unity.Collections.NativeArray<Triangle>.ReadOnly triangles,
-            in Unity.Collections.NativeArray<Vertex>.ReadOnly vertices)
-        {
-            int tcount = v0.tcount;
-            for (int k = 0; k < tcount; k++)
-            {
-                Ref r = refs[v0.tstart + k];
-                if (triangles[r.tid].deleted)
-                    continue;
-
-                int s = r.tvertex;
-                int id1 = triangles[r.tid][(s + 1) % 3];
-                int id2 = triangles[r.tid][(s + 2) % 3];
-#if BUGFIX
-                if (id1 == i0 || id2 == i1)
-#else
-                if (id1 == i1 || id2 == i1)
-#endif // BUGFIX
-                {
-                    deleted[k] = true;
-                    continue;
-                }
-
-                Vector3d d1 = vertices[id1].p - p;
-                d1.Normalize();
-                Vector3d d2 = vertices[id2].p - p;
-                d2.Normalize();
-                double dot = Vector3d.Dot(ref d1, ref d2);
-                if (Math.Abs(dot) > 0.999)
-                    return true;
-
-                Vector3d n;
-                Vector3d.Cross(ref d1, ref d2, out n);
-                n.Normalize();
-                deleted[k] = false;
-                Vector3d n2 = triangles[r.tid].n;
-                dot = Vector3d.Dot(ref n, ref n2);
-                if (dot < 0.2)
-                    return true;
-            }
-
-            return false;
-        }
-#else
         {
             int tcount = v0.tcount;
             var refs = this.refs.Data;
@@ -877,7 +809,6 @@ namespace UnityMeshSimplifier
 
             return false;
         }
-#endif // USING_BURST
         #endregion
 
         #region Update Triangles

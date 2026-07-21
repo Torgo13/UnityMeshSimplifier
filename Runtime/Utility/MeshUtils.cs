@@ -773,7 +773,7 @@ namespace UnityMeshSimplifier
                 throw new ArgumentNullException(nameof(indices));
 
             var result = new Vector2Int[indices.Length];
-            GetSubMeshIndexMinMax(indices, out indexFormat, result);
+            _ = GetSubMeshIndexMinMax(indices, out indexFormat, result);
             return result;
         }
 
@@ -784,12 +784,12 @@ namespace UnityMeshSimplifier
                 Unity.Collections.Allocator.Persistent,
                 Unity.Collections.NativeArrayOptions.UninitializedMemory);
 
-            GetSubMeshIndexMinMax(indices, out indexFormat, result);
+            _ = GetSubMeshIndexMinMax(indices, out indexFormat, result);
             return result;
         }
 
         /// <inheritdoc cref="GetSubMeshIndexMinMax(int[][], out IndexFormat)"/>
-        static void GetSubMeshIndexMinMax(int[][] indices, out IndexFormat indexFormat,
+        static Span<Vector2Int> GetSubMeshIndexMinMax(int[][] indices, out IndexFormat indexFormat,
             Span<Vector2Int> result)
         {
             indexFormat = IndexFormat.UInt16;
@@ -805,6 +805,7 @@ namespace UnityMeshSimplifier
                     indexFormat = IndexFormat.UInt32;
                 }
             }
+            return result;
         }
         #endregion
 
