@@ -41,16 +41,13 @@ namespace UnityMeshSimplifier.Internal
     {
 #if OPTIMISATION
         private readonly ResizableArray<TVec>?[] channels;
+        public ResizableArray<TVec>?[] Data => channels;
 #else
         private static readonly int UVChannelCount = MeshUtils.UVChannelCount;
 
         private ResizableArray<TVec>[] channels = null;
         private TVec[][] channelsData = null;
-#endif // OPTIMISATION
 
-#if OPTIMISATION
-        public ResizableArray<TVec>?[] Data => channels;
-#else
         public TVec[]?[] Data
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

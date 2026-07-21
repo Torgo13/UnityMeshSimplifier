@@ -48,8 +48,10 @@ namespace UnityMeshSimplifier
         #endregion
 
         #region Properties
-        public readonly bool IsNull => _resizableArray.IsEmpty;
-        public readonly bool IsNotNull => !IsNull;
+        public readonly bool IsNull => !IsNotNull;
+        public readonly bool IsNotNull => _resizableArray.IsCreated;
+        public readonly bool IsEmpty => _resizableArray.IsEmpty;
+        public readonly bool IsNotEmpty => !IsEmpty;
 
         public readonly int Length => _resizableArray.IsEmpty ? 0 : _resizableArray.Length;
         public readonly int Count => Length;
@@ -108,6 +110,7 @@ namespace UnityMeshSimplifier
         public NativeArray<T> AsArray() => _resizableArray.AsArray();
         public T[] ToArray() => _resizableArray.IsEmpty ? Array.Empty<T>() : _resizableArray.AsArray().ToArray();
         public Span<T> AsSpan() => _resizableArray.IsEmpty ? (Span<T>)Array.Empty<T>() : (Span<T>)_resizableArray.AsArray();
+        public ReadOnlySpan<T> AsReadOnlySpan() => _resizableArray.IsEmpty ? (ReadOnlySpan<T>)Array.Empty<T>() : (ReadOnlySpan<T>)_resizableArray.AsArray();
 
         public void Resize(int length, bool trimExcess = false, bool clearMemory = false)
         {
@@ -126,7 +129,7 @@ namespace UnityMeshSimplifier
         public static implicit operator ResizableArray<T>(UnityEngine.Object? obj) => default;
         public static implicit operator ResizableArray<T>(NativeList<T> resizableArray) => new ResizableArray<T>(resizableArray);
         public static implicit operator NativeList<T>(ResizableArray<T> resizableArray) => resizableArray._resizableArray;
-        public static implicit operator NativeArray<T>(ResizableArray<T> resizableArray) => resizableArray.AsArray();
+        public static explicit operator NativeArray<T>(ResizableArray<T> resizableArray) => resizableArray.AsArray();
         public static implicit operator Span<T>(ResizableArray<T> resizableArray) => resizableArray._resizableArray.IsEmpty ? new Span<T>() : resizableArray.AsArray().AsSpan();
         public static implicit operator ReadOnlySpan<T>(ResizableArray<T> resizableArray) => resizableArray._resizableArray.IsEmpty ? new ReadOnlySpan<T>() : resizableArray.AsArray().AsReadOnlySpan();
         public static implicit operator T[](ResizableArray<T> resizableArray) => resizableArray.ToArray();
@@ -174,6 +177,8 @@ namespace UnityMeshSimplifier
         #region Properties
         public bool IsNull => items.Length == 0;
         public bool IsNotNull => !IsNull;
+        public bool IsEmpty => IsNull;
+        public bool IsNotEmpty => !IsEmpty;
 
         /// <summary>
         /// Gets the length of this array.

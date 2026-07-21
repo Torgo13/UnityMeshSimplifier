@@ -144,7 +144,7 @@ namespace UnityEngine
 
             if (count != list.Count)
             {
-                ListPrivateFieldAccess<T> tListAccess = Unsafe.As<System.Collections.Generic.List<T>, ListPrivateFieldAccess<T>>(ref list);
+                ListPrivateFieldAccess<T> tListAccess = Unity.Collections.LowLevel.Unsafe.UnsafeUtility.As<System.Collections.Generic.List<T>, ListPrivateFieldAccess<T>>(ref list);
                 tListAccess._size = count;
                 tListAccess._version++;
             }
@@ -160,7 +160,7 @@ namespace UnityEngine
             if (list == null)
                 return null;
 
-            var tListAccess = Unsafe.As<ListPrivateFieldAccess<T>>(list);
+            var tListAccess = Unity.Collections.LowLevel.Unsafe.UnsafeUtility.As<System.Collections.Generic.List<T>, ListPrivateFieldAccess<T>>(ref list);
             return tListAccess._items;
         }
 
@@ -170,7 +170,7 @@ namespace UnityEngine
             if (list == null)
                 return default;
 
-            var tListAccess = Unsafe.As<ListPrivateFieldAccess<T>>(list);
+            var tListAccess = Unity.Collections.LowLevel.Unsafe.UnsafeUtility.As<System.Collections.Generic.List<T>, ListPrivateFieldAccess<T>>(ref list);
             return new Span<T>(tListAccess._items, 0, tListAccess._size);
         }
 
@@ -180,32 +180,8 @@ namespace UnityEngine
             if (list == null)
                 return default;
 
-            var tListAccess = Unsafe.As<ListPrivateFieldAccess<T>>(list);
+            var tListAccess = Unity.Collections.LowLevel.Unsafe.UnsafeUtility.As<System.Collections.Generic.List<T>, ListPrivateFieldAccess<T>>(ref list);
             return new ReadOnlySpan<T>(tListAccess._items, 0, tListAccess._size);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void ResizeListContents(object list, Type elementType, int newSize)
-        {
-            var listPrivateFieldAccess = Unsafe.As<ListPrivateFieldAccess<byte>>(list);
-            ref byte[] array = ref listPrivateFieldAccess._items;
-            int capacity = array.Length;
-            int previousCount = listPrivateFieldAccess._size;
-
-            // If there is less capacity than is required, create a new array of the required count.
-            if (capacity < newSize)
-            {
-                array = Unsafe.As<byte[]>(Array.CreateInstance(elementType, newSize));
-            }
-            else if (previousCount > newSize)
-            {
-                // Otherwise it means that there is enough capacity. Then, if the previous count
-                // is greater than the current count, it means that elements in between them must be cleared.
-                Array.Clear(array as Array, newSize, previousCount - newSize); // Forcing the call to pass array as Array type. If an overload is introduced in the future, we want to avoid it as the element type is unknown
-            }
-
-            listPrivateFieldAccess._size = newSize;
-            listPrivateFieldAccess._version++;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -213,7 +189,7 @@ namespace UnityEngine
         {
             if (list.Capacity < size) throw new ArgumentException($"Resetting to {size} which is bigger than capacity {list.Capacity} is not allowed!");
 
-            var tListAccess = Unsafe.As<ListPrivateFieldAccess<T>>(list);
+            var tListAccess = Unity.Collections.LowLevel.Unsafe.UnsafeUtility.As<System.Collections.Generic.List<T>, ListPrivateFieldAccess<T>>(ref list);
 
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>() && tListAccess._size > size)
                 Array.Clear(tListAccess._items, size, tListAccess._size - size);

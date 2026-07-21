@@ -34,13 +34,22 @@ namespace UnityMeshSimplifier.Internal
     {
         private readonly Unity.Collections.NativeText shapeName;
         private readonly Unity.Collections.NativeArray<BlendShapeFrameContainer> frames;
+
+        internal string ShapeName => shapeName.ToString();
+        internal Unity.Collections.NativeArray<BlendShapeFrameContainer> Frames => frames;
+
+        public BlendShapeContainer(string shapeName, BlendShapeFrameContainer[] frames)
+        {
+            this.shapeName = new Unity.Collections.NativeText(shapeName, Unity.Collections.Allocator.Domain);
+            this.frames = new Unity.Collections.NativeArray<BlendShapeFrameContainer>(frames,
+                Unity.Collections.Allocator.Domain);
+        }
 #else
     sealed
     internal class BlendShapeContainer
     {
         private readonly string shapeName;
         private readonly BlendShapeFrameContainer[] frames;
-#endif // OPTIMISATION_IDISPOSABLE
 
         internal string ShapeName => shapeName;
         internal BlendShapeFrameContainer[] Frames => frames;
@@ -50,6 +59,7 @@ namespace UnityMeshSimplifier.Internal
             this.shapeName = shapeName;
             this.frames = frames;
         }
+#endif // OPTIMISATION_IDISPOSABLE
 
         public BlendShapeContainer(BlendShape blendShape)
         {

@@ -925,11 +925,12 @@ namespace UnityMeshSimplifier
         #region Interpolate Vertex Attributes
         private void InterpolateVertexAttributes(int dst, int i0, int i1, int i2, ref Vector3 barycentricCoord)
         {
-            if (vertNormals.IsNotNull)
+            if (vertNormals.IsNotEmpty)
             {
                 vertNormals[dst] = Vector3.Normalize((vertNormals[i0] * barycentricCoord.x) + (vertNormals[i1] * barycentricCoord.y) + (vertNormals[i2] * barycentricCoord.z));
             }
             if (vertTangents.IsNotNull)
+            if (vertTangents.IsNotEmpty)
             {
                 vertTangents[dst] = NormalizeTangent((vertTangents[i0] * barycentricCoord.x) + (vertTangents[i1] * barycentricCoord.y) + (vertTangents[i2] * barycentricCoord.z));
             }
@@ -966,11 +967,11 @@ namespace UnityMeshSimplifier
                     }
                 }
             }
-            if (vertColors.IsNotNull)
+            if (vertColors.IsNotEmpty)
             {
                 vertColors[dst] = (vertColors[i0] * barycentricCoord.x) + (vertColors[i1] * barycentricCoord.y) + (vertColors[i2] * barycentricCoord.z);
             }
-            if (blendShapes.IsNotNull)
+            if (blendShapes.IsNotEmpty)
             {
                 for (int i = 0; i < blendShapes.Length; i++)
                 {
@@ -1439,14 +1440,14 @@ namespace UnityMeshSimplifier
                 vertices[i].tcount = 0;
             }
 
-            var vertNormals = this.vertNormals.IsNotNull ? this.vertNormals.Data : null;
-            var vertTangents = this.vertTangents.IsNotNull ? this.vertTangents.Data : null;
+            var vertNormals = this.vertNormals.IsNotEmpty ? this.vertNormals.Data : null;
+            var vertTangents = this.vertTangents.IsNotEmpty ? this.vertTangents.Data : null;
             var vertUV2D = this.vertUV2D != null ? this.vertUV2D.Data : null;
             var vertUV3D = this.vertUV3D != null ? this.vertUV3D.Data : null;
             var vertUV4D = this.vertUV4D != null ? this.vertUV4D.Data : null;
-            var vertColors = this.vertColors.IsNotNull ? this.vertColors.Data : null;
-            var vertBoneWeights = this.vertBoneWeights.IsNotNull ? this.vertBoneWeights.Data : null;
-            var blendShapes = this.blendShapes.IsNotNull ? this.blendShapes.Data : null;
+            var vertColors = this.vertColors.IsNotEmpty ? this.vertColors.Data : null;
+            var vertBoneWeights = this.vertBoneWeights.IsNotEmpty ? this.vertBoneWeights.Data : null;
+            var blendShapes = this.blendShapes.IsNotEmpty ? this.blendShapes.Data : null;
 
             int lastSubMeshIndex = -1;
             subMeshOffsets = new int[subMeshCount];
@@ -2255,7 +2256,7 @@ namespace UnityMeshSimplifier
         /// <returns>An array of all blend shapes.</returns>
         public BlendShape[] GetAllBlendShapes()
         {
-            if (blendShapes.IsNull)
+            if (blendShapes.IsEmpty)
                 return Array.Empty<BlendShape>();
 
             var results = new BlendShape[blendShapes.Length];
@@ -2286,13 +2287,16 @@ namespace UnityMeshSimplifier
         {
 #if OPTIMISATION
 #if OPTIMISATION_IDISPOSABLE
-            foreach (var blendShape in blendShapes)
+            if (blendShapes.IsNotNull)
             {
-                blendShape.Dispose();
-            }
+                foreach (var blendShape in blendShapes)
+                {
+                    blendShape.Dispose();
+                }
 
-            blendShapes.Dispose();
-            blendShapes = default;
+                blendShapes.Dispose();
+                blendShapes = default;
+            }
 #else
             blendShapes.Clear();
 #endif // OPTIMISATION_IDISPOSABLE
